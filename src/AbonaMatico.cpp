@@ -1,28 +1,28 @@
 
-#include "MiProyecto.h"
+#include "AbonaMatico.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>				// OJO: Tener instalada una version NO BETA (a dia de hoy la estable es la 5.13.4). Alguna pata han metido en la 6
 #include <NTPClient.h>					// Para la gestion de la hora por NTP
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
 #include <FS.h>							// Libreria Sistema de Ficheros
 
-MiProyecto::MiProyecto(String fich_config_MiProyecto, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
+AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
 
-    HardwareInfo = "MiProyecto-1.0b";
+    HardwareInfo = "AbonaMatico-1.0";
 	ComOK = false;
 	HayQueSalvar = false;
-	mificheroconfig = fich_config_MiProyecto;
+	mificheroconfig = fich_config_AbonaMatico;
     
 }
 
-void MiProyecto::SetRespondeComandoCallback(RespondeComandoCallback ref) {
+void AbonaMatico::SetRespondeComandoCallback(RespondeComandoCallback ref) {
 
 	MiRespondeComandos = (RespondeComandoCallback)ref;
 
 }
 
 // Metodo que devuelve un JSON con el estado
-String MiProyecto::MiEstadoJson(int categoria) {
+String AbonaMatico::MiEstadoJson(int categoria) {
 
 	DynamicJsonBuffer jBuffer;
 	JsonObject& jObj = jBuffer.createObject();
@@ -66,7 +66,7 @@ String MiProyecto::MiEstadoJson(int categoria) {
 	
 }
 
-boolean MiProyecto::SalvaConfig(){
+boolean AbonaMatico::SalvaConfig(){
 	
 
 	File mificheroconfig_handler = SPIFFS.open(mificheroconfig, "w");
@@ -90,7 +90,7 @@ boolean MiProyecto::SalvaConfig(){
 
 }
 
-boolean MiProyecto::LeeConfig(){
+boolean AbonaMatico::LeeConfig(){
 
 	// Sacar del fichero de configuracion, si existe, las configuraciones permanentes
 	if (SPIFFS.exists(mificheroconfig)) {
@@ -128,7 +128,7 @@ boolean MiProyecto::LeeConfig(){
 // Metodos (funciones). TODAS Salvo la RUN() deben ser ASINCRONAS. Jamas se pueden quedar uno esperando. Esperar a lo bobo ESTA PROHIBIDISISISISMO, tenemos MUCHAS cosas que hacer ....
 
 // Esta funcion se lanza desde una Task y hace las "cosas periodicas de la clase". No debe atrancarse nunca tampoco por supuesto (ni esta ni ninguna)
-void MiProyecto::Run() {
+void AbonaMatico::Run() {
 	
 	// UpTime Minutos
 	t_uptime = 0;

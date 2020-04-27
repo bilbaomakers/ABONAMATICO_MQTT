@@ -1,12 +1,12 @@
-#ifndef _MiProyecto
-#define _MiProyecto
+#ifndef _AbonaMatico
+#define _AbonaMatico
 
 #include <Arduino.h>
 #include <NTPClient.h>					// Para la gestion de la hora por NTP
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
 
 
-class MiProyecto
+class AbonaMatico
 {
 
 
@@ -27,8 +27,8 @@ private:
     
 public:
 
-    MiProyecto(String fich_config_MiProyecto, NTPClient& ClienteNTP);
-    ~MiProyecto() {};
+    AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP);
+    ~AbonaMatico() {};
 
     //  Variables Publicas
 	String HardwareInfo;											// Identificador del HardWare y Software

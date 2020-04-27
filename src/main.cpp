@@ -2,19 +2,17 @@
 
 /*
 
-Programa base para utilizar de base en tus proyectos MQTT con ESP8266
+# ABONAMATICO 1.0
+# Inyector de Abono en el riego con capcidades MQTT
 Desarrollado con Visual Code + PlatformIO en Framework Arduino
 Implementa las comunicaciones WIFI y MQTT asi como la configuracion de las mismas via comandos
 Implementa el envio de comandos via puerto serie o MQTT
 Implementa el uso de tareas para multiproceso con la libreria TaskScheduler
-Incluye la clase MiProyecto para desarrollar nuestro proyecto.
 Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@diegomaroto.net
-
-https://github.com/bilbaomakers/ESP8266MQTTBASE
-
+https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
-
 Licencia: GNU General Public License v3.0 ( mas info en GitHub )
+
 
 */
 
@@ -29,7 +27,7 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 #include <TaskScheduler.h>				// Task Scheduler
 #include <cppQueue.h>					// Libreria para uso de colas.
 #include <ConfigCom.h>					// Para la gestion de la configuracion de las comunicaciones.
-#include <MiProyecto.h>					// Clase de Mi Proyecto
+#include <AbonaMatico.h>				// Clase de Mi Proyecto
 #include <ESP8266WiFi.h>				// Para la gestion de la Wifi
 #include <AsyncMqttClient.h>			// Vamos a probar esta que es Asincrona: https://github.com/marvinroger/async-mqtt-client
 #include <FS.h>							// Libreria Sistema de Ficheros
@@ -57,10 +55,10 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 #pragma region Constantes y configuracion. Modificable aqui por el usuario
 
 // Para el nombre del fichero de configuracion de comunicaciones
-static const String FICHERO_CONFIG_COM = "/MiProyectoCom.json";
+static const String FICHERO_CONFIG_COM = "/AbonaMaticoCom.json";
 
 // Para el nombre del fichero de configuracion del proyecto
-static const String FICHERO_CONFIG_PRJ = "/MiProyectoCfg.json";
+static const String FICHERO_CONFIG_PRJ = "/AbonaMaticoCfg.json";
 
 // Para la zona horaria (horas de diferencia con UTC)
 static const int HORA_LOCAL = 2;
@@ -90,8 +88,8 @@ static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 3600);
 // Para el manejador de ficheros de configuracion
 ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
 
-// Objeto de la clase MiProyecto.
-MiProyecto MiProyectoOBJ(FICHERO_CONFIG_PRJ, ClienteNTP);
+// Objeto de la clase AbonaMatico.
+AbonaMatico MiAbonaMatico(FICHERO_CONFIG_PRJ, ClienteNTP);
 
 // Task Scheduler
 Scheduler MiTaskScheduler;
@@ -169,7 +167,7 @@ void onMqttConnect(bool sessionPresent) {
 	else{
 
 		// Si todo ha ido bien, proceso de inicio terminado.
-		MiProyectoOBJ.ComOK = true;
+		MiAbonaMatico.ComOK = true;
 		Serial.print("** ");
 		Serial.print(ClienteNTP.getFormattedTime());
 		Serial.println(" - SISTEMA INICIADO CORRECTAMENTE **");
@@ -238,7 +236,7 @@ void onMqttPublish(uint16_t packetId) {
 
 }
 
-// Manda a la cola de respuestas el mensaje de respuesta. Esta funcion la uso como CALLBACK para el objeto MiProyecto
+// Manda a la cola de respuestas el mensaje de respuesta. Esta funcion la uso como CALLBACK para el objeto AbonaMatico
 void MandaRespuesta(String comando, String payload) {
 
 			String t_topic = MiConfig.statTopic + "/" + comando;
@@ -274,7 +272,7 @@ void MandaTelemetria() {
 			ObjJson.set("TIPO","MQTT");
 			ObjJson.set("CMND","TELE");
 			ObjJson.set("MQTTT",t_topic);
-			ObjJson.set("RESP",MiProyectoOBJ.MiEstadoJson(1));
+			ObjJson.set("RESP",MiAbonaMatico.MiEstadoJson(1));
 			
 			char JSONmessageBuffer[300];
 			ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
@@ -561,10 +559,10 @@ void TaskComandosSerieRun(){
 }
 
 // Tarea para el metodo run del objeto de la cupula.
-void TaskMiProyectoRun(){
+void TaskAbonaMaticoRun(){
 
 
-		MiProyectoOBJ.Run();
+		MiAbonaMatico.Run();
 
 
 }
@@ -584,7 +582,7 @@ void TaskMandaTelemetria(){
 
 Task TaskProcesaComandosHandler (100, TASK_FOREVER, &TaskProcesaComandos, &MiTaskScheduler, false);
 Task TaskEnviaRespuestasHandler (100, TASK_FOREVER, &TaskEnviaRespuestas, &MiTaskScheduler, false);
-Task TaskMiProyectoRunHandler (100, TASK_FOREVER, &TaskMiProyectoRun, &MiTaskScheduler, false);
+Task TaskAbonaMaticoRunHandler (100, TASK_FOREVER, &TaskAbonaMaticoRun, &MiTaskScheduler, false);
 Task TaskMandaTelemetriaHandler (5000, TASK_FOREVER, &TaskMandaTelemetria, &MiTaskScheduler, false);
 Task TaskComandosSerieRunHandler (100, TASK_FOREVER, &TaskComandosSerieRun, &MiTaskScheduler, false);
 Task TaskGestionRedHandler (4000, TASK_FOREVER, &TaskGestionRed, &MiTaskScheduler, false);	
@@ -602,10 +600,10 @@ void setup() {
 	Serial.begin(115200);
 	Serial.println();
 
-	Serial.println("-- Iniciando Controlador MiProyecto --");
+	Serial.println("-- Iniciando Controlador AbonaMatico --");
 
 	// Asignar funciones Callback
-	MiProyectoOBJ.SetRespondeComandoCallback(MandaRespuesta);
+	MiAbonaMatico.SetRespondeComandoCallback(MandaRespuesta);
 		
 	// Comunicaciones
 	ClienteMQTT = AsyncMqttClient();
@@ -633,7 +631,7 @@ void setup() {
   			ClienteMQTT.onPublish(onMqttPublish);
   			ClienteMQTT.setServer(MiConfig.mqttserver, 1883);
 			ClienteMQTT.setCleanSession(true);
-			ClienteMQTT.setClientId("MiProyecto");
+			ClienteMQTT.setClientId("AbonaMatico");
 			ClienteMQTT.setCredentials(MiConfig.mqttusuario,MiConfig.mqttpassword);
 			ClienteMQTT.setKeepAlive(4);
 			ClienteMQTT.setWill(MiConfig.lwtTopic.c_str(),2,true,"Offline");
@@ -644,8 +642,8 @@ void setup() {
 	
 		}
 
-		// Leer configuracion salvada del Objeto MiProyectoOBJ
-		MiProyectoOBJ.LeeConfig();
+		// Leer configuracion salvada del Objeto MiAbonaMatico
+		MiAbonaMatico.LeeConfig();
 
 	}
 
@@ -661,7 +659,7 @@ void setup() {
 		
 	TaskProcesaComandosHandler.enable();
 	TaskEnviaRespuestasHandler.enable();
-	TaskMiProyectoRunHandler.enable();
+	TaskAbonaMaticoRunHandler.enable();
 	TaskMandaTelemetriaHandler.enable();
 	TaskComandosSerieRunHandler.enable();
 	

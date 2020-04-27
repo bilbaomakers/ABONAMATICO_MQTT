@@ -1,6 +1,6 @@
-# ESP8266MQTTBASE 1.1
+# ABONAMATICO 1.0
 
-# Programa base para utilizar de base en tus proyectos MQTT con ESP8266
+# Inyector de Abono en el riego con capcidades MQTT
 
 Desarrollado con Visual Code + PlatformIO en Framework Arduino
 
@@ -10,11 +10,9 @@ Implementa el envio de comandos via puerto serie o MQTT
 
 Implementa el uso de tareas para multiproceso con la libreria TaskScheduler
 
-Incluye la clase MiProyecto para desarrollar nuestro proyecto.
-
 Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@diegomaroto.net
 
-https://github.com/bilbaomakers/ESP8266MQTTBASE
+https://github.com/dmarofer/ABONAMATICO_MQTT
 
 https://bilbaomakers.org/
 
