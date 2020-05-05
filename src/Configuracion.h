@@ -9,7 +9,7 @@
 
 // STEPPER
 #define PASOS_MOTOR 200         // Pasos por vuelta
-#define MICROPASOS 16           // Micropasos del driver
+#define MICROPASOS 1            // Micropasos del driver
 #define DIR_MOTOR D0            // Pin de direccion
 #define STEP_MOTOR D1           // Pin de pasos
 #define ENABLE_MOTOR D2         // Pin de enable
@@ -31,4 +31,3 @@
 
 // Para el nombre del fichero de configuracion del proyecto
 #define FICHERO_CONFIG_PRJ "/AbonaMaticoCfg.json"
-

@@ -23,7 +23,9 @@ private:
     NTPClient &ClienteNTP;
 
 	ICACHE_RAM_ATTR static void ISRHomeSwitch();		 		// Funcion servicio interrupcion switch home
+
 	static AbonaMatico* sAbonaMatico;			// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
+
 
 
 	// para el estado del switch home

@@ -18,14 +18,13 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
 
-	// El pin home entrada pullup. El Switch NC lo tira a GND (1 cuando abre o rompe)
 	pinMode(PINHOME, INPUT_PULLUP);
-	// Interrupcion para el cambio de estado del switch
-	//attachInterrupt(digitalPinToInterrupt(PINHOME),AbonaMatico::ISRHomeSwitch, CHANGE);
 
-	
-
-    HardwareInfo = "AbonaMatico-1.0";
+	pinMode(ENABLE_MOTOR, OUTPUT);
+	digitalWrite(ENABLE_MOTOR,0);
+	pinMode(PINLED, OUTPUT);
+	digitalWrite(PINLED,1);
+	HardwareInfo = "AbonaMatico-1.0";
 	ComOK = false;
 	HayQueSalvar = false;
 	mificheroconfig = fich_config_AbonaMatico;
@@ -43,12 +42,12 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 	//stepper.begin(20,1);											// Iniciar el objeto stepper. RPM y Microsteps
 
 	stepper.connectToPins(STEP_MOTOR, DIR_MOTOR);
-	//stepper.setSpeedInStepsPerSecond(100);
-  	//stepper.setAccelerationInStepsPerSecondPerSecond(100);
-	stepper.setStepsPerMillimeter((PASOS_MOTOR*MICROPASOS)/PASOTRANSMISION);
+	//stepper.setStepsPerRevolution(PASOS_MOTOR);
+	//stepper.setStepsPerMillimeter((PASOS_MOTOR*MICROPASOS)/PASOTRANSMISION);
+	stepper.setSpeedInRevolutionsPerSecond(0.5);
+	stepper.setStepsPerMillimeter(20);
 	stepper.setSpeedInMillimetersPerSecond(1);
 	stepper.setAccelerationInMillimetersPerSecondPerSecond(1);
-
 	
 }
 
