@@ -36,9 +36,10 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 #include <NTPClient.h>					// Para la gestion de la hora por NTP
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
 #include <ArduinoOTA.h>					// Actualizaciones de firmware por red.
+#include <Configuracion.h>				// Fichero de configuracion
 
 // Tipo de cola (lib cppQueue)
-#define	IMPLEMENTATION	LIFO
+#define	IMPLEMENTATION	FIFO
 
 // TaskScheduler options:
 //#define _TASK_TIMECRITICAL    // Enable monitoring scheduling overruns
@@ -49,19 +50,6 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 //#define _TASK_PRIORITY          // Support for layered scheduling priority
 //#define _TASK_MICRO_RES       // Support for microsecond resolutionMM
 //#define _TASK_DEBUG
-
-#pragma endregion
-
-#pragma region Constantes y configuracion. Modificable aqui por el usuario
-
-// Para el nombre del fichero de configuracion de comunicaciones
-static const String FICHERO_CONFIG_COM = "/AbonaMaticoCom.json";
-
-// Para el nombre del fichero de configuracion del proyecto
-static const String FICHERO_CONFIG_PRJ = "/AbonaMaticoCfg.json";
-
-// Para la zona horaria (horas de diferencia con UTC)
-static const int HORA_LOCAL = 2;
 
 #pragma endregion
 
@@ -89,6 +77,8 @@ static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 3600);
 ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
 
 // Objeto de la clase AbonaMatico.
+// Primero una instancia vacia, porque si no el puntero sAbonamatico no existe a la hora del constructor y el compilador me insulta. Un cristo vamos.
+AbonaMatico* AbonaMatico::sAbonaMatico = 0;
 AbonaMatico MiAbonaMatico(FICHERO_CONFIG_PRJ, ClienteNTP);
 
 // Task Scheduler
@@ -110,6 +100,7 @@ void WiFiEventCallBack(WiFiEvent_t event) {
 			ArduinoOTA.begin();
 			Serial.println("Proceso OTA arrancado.");
 			ClienteNTP.begin();
+			ClienteMQTT.connect();
         	break;
     	case WIFI_EVENT_STAMODE_DISCONNECTED:
         	Serial.println("Conexion WiFi: Desconetado");
@@ -184,7 +175,8 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
 
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   
-	String s_topic = String(topic);
+		
+		String s_topic = String(topic);
 
 		// Para que no casque si no viene payload. Asi todo OK al gestor de comandos le llega vacio como debe ser, el JSON lo pone bien.
 		if (payload == NULL){
@@ -223,11 +215,10 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 			// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
 			//xQueueSend(ColaComandos, &JSONmessageBuffer, 0);
 			ColaComandos.push(&JSONmessageBuffer);
-			
+						
 		}
 
-	//}
-
+		
 }
 
 void onMqttPublish(uint16_t packetId) {
@@ -305,7 +296,6 @@ void TaskProcesaComandos (){
 
 	char JSONmessageBuffer[100];
 	
-
 			
 			// Limpiar el Buffer
 			memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
@@ -396,6 +386,21 @@ void TaskProcesaComandos (){
 						
 					}
 
+
+					else if (COMANDO == "IniciaMecanica"){
+
+						MiAbonaMatico.IniciaMecanica();
+
+					}
+
+					else if (COMANDO == "ResetMecanica"){
+
+						MiAbonaMatico.Estado_Mecanica = MiAbonaMatico.EM_SIN_INICIAR;
+						MandaRespuesta("ResetMecanica", String(MiAbonaMatico.Estado_Mecanica));
+
+					}
+
+
 					// Y Ya si no es de ninguno de estos ....
 
 					else {
@@ -426,15 +431,15 @@ void TaskEnviaRespuestas(){
 	
 	char JSONmessageBuffer[300];
 	
-
-	
-
 		// Limpiar el Buffer
 		memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
 
 		if (ColaRespuestas.pull(&JSONmessageBuffer)){
 
 				DynamicJsonBuffer jsonBuffer;
+
+				//Para Debug
+				//Serial.println(JSONmessageBuffer);
 
 				JsonObject& ObjJson = jsonBuffer.parseObject(JSONmessageBuffer);
 
@@ -447,6 +452,7 @@ void TaskEnviaRespuestas(){
 					
 					if (TIPO == "BOTH"){
 
+						//Serial.println(MQTTT.c_str());
 						ClienteMQTT.publish(MQTTT.c_str(), 2, false, RESP.c_str());
 						Serial.println(ClienteNTP.getFormattedTime() + " " + CMND + " " + RESP);
 						
@@ -573,7 +579,6 @@ void TaskMandaTelemetria(){
 		
 		MandaTelemetria();
 		
-		
 	
 }
 
@@ -585,7 +590,7 @@ Task TaskEnviaRespuestasHandler (100, TASK_FOREVER, &TaskEnviaRespuestas, &MiTas
 Task TaskAbonaMaticoRunHandler (100, TASK_FOREVER, &TaskAbonaMaticoRun, &MiTaskScheduler, false);
 Task TaskMandaTelemetriaHandler (5000, TASK_FOREVER, &TaskMandaTelemetria, &MiTaskScheduler, false);
 Task TaskComandosSerieRunHandler (100, TASK_FOREVER, &TaskComandosSerieRun, &MiTaskScheduler, false);
-Task TaskGestionRedHandler (4000, TASK_FOREVER, &TaskGestionRed, &MiTaskScheduler, false);	
+Task TaskGestionRedHandler (30000, TASK_FOREVER, &TaskGestionRed, &MiTaskScheduler, false);	
 
 
 
@@ -665,6 +670,11 @@ void setup() {
 	
 	// Init Completado.
 	Serial.println("Setup Completado.");
+
+	// Iniciar Mecanica para pruebas forzando el estado a Sin Iniciar (cosa que solo se debe hacer si no esta puesta la jeringuilla)
+	//Serial.println("Iniciando Mecanica desde Setup");
+	//MiAbonaMatico.Estado_Mecanica = MiAbonaMatico.EM_SIN_INICIAR;
+	//MiAbonaMatico.IniciaMecanica();
 	
 }
 
@@ -678,8 +688,11 @@ void setup() {
 void loop() {
 
 	ArduinoOTA.handle();
+	//ClienteNTP.update();
+	MiAbonaMatico.RunFast();
 	MiTaskScheduler.execute();
-	ClienteNTP.update();
+
+	
 
 }
 
