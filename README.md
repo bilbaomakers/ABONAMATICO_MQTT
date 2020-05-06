@@ -17,3 +17,8 @@ https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
 
 Licencia: GNU General Public License v3.0 ( mas info en GitHub )
+
+
+Notas de la vesion:
+
+Version Comunicaciones. Voy a ver si hago una clase para el MQTT que me permita movel facilmente de ESP8266 a ESP32 y cambiar la libreria MQTT
