@@ -5,11 +5,6 @@
 #include <AsyncMqttClient.h>			// Vamos a probar esta que es Asincrona: https://github.com/marvinroger/async-mqtt-client
 #include <ArduinoJson.h>				// OJO: Tener instalada una version NO BETA (a dia de hoy la estable es la 5.13.4). Alguna pata han metido en la 6
 
-// TAREAS:
-// Quitar de aqui cualquier interaccion directa con nada, por ejemplo con el Serial
-// hacerlo con callbacks
-
-
 AsyncMqttClient ClienteMQTT;
 
 Comunicaciones::Comunicaciones(){
@@ -29,14 +24,12 @@ void Comunicaciones::SetEventoCallback(TipoCallbackEvento ref){
 
 }
 
-
 void Comunicaciones::SetMqttServidor(char l_mqttserver[40]){
 
     strncpy(mqttserver, l_mqttserver, sizeof(l_mqttserver));
     this->Desonectar();
     
 }
-
 
 void Comunicaciones::SetMqttUsuario(char l_mqttusuario[19]){
 
@@ -45,14 +38,12 @@ void Comunicaciones::SetMqttUsuario(char l_mqttusuario[19]){
 
 }
 
-
 void Comunicaciones::SetMqttPassword(char l_mqttpassword[19]){
 
     strncpy(mqttpassword, l_mqttpassword, sizeof(l_mqttpassword));
     this->Desonectar();
 
 }
-
 
 void Comunicaciones::SetMqttTopic(char l_mqtttopic[33]){
 
@@ -62,15 +53,12 @@ void Comunicaciones::SetMqttTopic(char l_mqtttopic[33]){
 
 }
 
-
 void Comunicaciones::SetMqttClientId(char l_mqttclientid[15]){
 
     strncpy(mqttclientid, l_mqttclientid, sizeof(l_mqttclientid));
     this->Desonectar();
 
 }
-
-
 
 void Comunicaciones::FormaEstructuraTopics(){
 
@@ -80,6 +68,7 @@ void Comunicaciones::FormaEstructuraTopics(){
     lwtTopic = teleTopic + "/LWT";
 
 }
+
 
 bool Comunicaciones::IsConnected(){
 
@@ -124,11 +113,20 @@ void Comunicaciones::Conectar(){
 
 }
 
+void Comunicaciones::Enviar(String Topic, String Payload){
+
+    ClienteMQTT.publish(Topic.c_str(), 2, false, Payload.c_str());
+
+}
+
 void Comunicaciones::Desonectar(){
 
+    // No lanzo evento mio porque se lanza en el callback del objeto MQTT
     ClienteMQTT.disconnect();
     
 }
+
+
 
 void Comunicaciones::onMqttConnect(bool sessionPresent) {
 

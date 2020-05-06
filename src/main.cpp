@@ -330,9 +330,6 @@ void TaskEnviaRespuestas(){
 
 				DynamicJsonBuffer jsonBuffer;
 
-				//Para Debug
-				//Serial.println(JSONmessageBuffer);
-
 				JsonObject& ObjJson = jsonBuffer.parseObject(JSONmessageBuffer);
 
 				if (ObjJson.success()) {
@@ -344,15 +341,14 @@ void TaskEnviaRespuestas(){
 					
 					if (TIPO == "BOTH"){
 
-						//Serial.println(MQTTT.c_str());
-						ClienteMQTT.publish(MQTTT.c_str(), 2, false, RESP.c_str());
+						MisComunicaciones.Enviar(MQTTT, RESP);
 						Serial.println(ClienteNTP.getFormattedTime() + " " + CMND + " " + RESP);
 						
 					}
 
 					else 	if (TIPO == "MQTT"){
 
-						ClienteMQTT.publish(MQTTT.c_str(), 2, false, RESP.c_str());
+						MisComunicaciones.Enviar(MQTTT, RESP);
 																								
 					}
 					
@@ -509,7 +505,9 @@ void setup() {
 	// Iniciar la Wifi
 	WiFi.begin();
 
-	//MiTaskScheduler.init();
+	// Configurar todo el objeto Miscomunicaciones
+	***
+
 
 	// Iniciar el sistema de ficheros
 	SPIFFStatus = SPIFFS.begin();
