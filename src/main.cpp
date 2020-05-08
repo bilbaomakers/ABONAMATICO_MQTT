@@ -29,7 +29,6 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 #include <ConfigCom.h>					// Para la gestion de la configuracion de las comunicaciones.
 #include <AbonaMatico.h>				// Clase de Mi Proyecto
 #include <ESP8266WiFi.h>				// Para la gestion de la Wifi
-#include <AsyncMqttClient.h>			// Vamos a probar esta que es Asincrona: https://github.com/marvinroger/async-mqtt-client
 #include <FS.h>							// Libreria Sistema de Ficheros
 #include <ArduinoJson.h>				// OJO: Tener instalada una version NO BETA (a dia de hoy la estable es la 5.13.4). Alguna pata han metido en la 6
 #include <string>						// Para el manejo de cadenas
@@ -37,6 +36,7 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
 #include <ArduinoOTA.h>					// Actualizaciones de firmware por red.
 #include <Configuracion.h>				// Fichero de configuracion
+#include <Comunicaciones.h>				// Clase de Comunicaciones
 
 // Tipo de cola (lib cppQueue)
 #define	IMPLEMENTATION	FIFO
@@ -56,7 +56,7 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 #pragma region Objetos
 
 // Para la conexion MQTT
-AsyncMqttClient ClienteMQTT;
+// AsyncMqttClient ClienteMQTT;
 
 // Manejadores Colas para comunicaciones inter-tareas
 //QueueHandle_t ColaComandos,ColaRespuestas;
@@ -76,6 +76,9 @@ static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 3600);
 // Para el manejador de ficheros de configuracion
 ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
 
+// Para las Comunicaciones
+Comunicaciones MisComunicaciones = Comunicaciones();
+
 // Objeto de la clase AbonaMatico.
 // Primero una instancia vacia, porque si no el puntero sAbonamatico no existe a la hora del constructor y el compilador me insulta. Un cristo vamos.
 AbonaMatico* AbonaMatico::sAbonaMatico = 0;
@@ -86,7 +89,7 @@ Scheduler MiTaskScheduler;
 
 #pragma endregion
 
-#pragma region Funciones de gestion de las conexiones Wifi
+#pragma region Funciones de Eventos y Telemetria
 
 // Funcion ante un evento de la wifi
 void WiFiEventCallBack(WiFiEvent_t event) {
@@ -100,7 +103,7 @@ void WiFiEventCallBack(WiFiEvent_t event) {
 			ArduinoOTA.begin();
 			Serial.println("Proceso OTA arrancado.");
 			ClienteNTP.begin();
-			ClienteMQTT.connect();
+			MisComunicaciones.Conectar();
         	break;
     	case WIFI_EVENT_STAMODE_DISCONNECTED:
         	Serial.println("Conexion WiFi: Desconetado");
@@ -112,168 +115,84 @@ void WiFiEventCallBack(WiFiEvent_t event) {
 		
 }
 
-#pragma endregion
-
-#pragma region Funciones de gestion de las conexiones MQTT
-
-// Manejador del evento de conexion al MQTT
-void onMqttConnect(bool sessionPresent) {
-
-	Serial.println("Conexion MQTT: Conectado");
-	
-	bool susflag = false;
-	bool lwtflag = false;
-	
-	// Suscribirse al topic de Entrada de Comandos
-	if (ClienteMQTT.subscribe(MiConfig.cmndTopic.c_str(), 2)) {
-
-		// Si suscrito correctamente
-		Serial.println("Suscrito al topic " + MiConfig.cmndTopic);
-
-		susflag = true;				
-
-	}
-		
-	else { Serial.println("Error Suscribiendome al topic " + MiConfig.cmndTopic); }
-
-	
-	// Publicar un Online en el LWT
-	if (ClienteMQTT.publish((MiConfig.teleTopic + "/LWT").c_str(), 2,true,"Online")){
-
-		// Si llegamos hasta aqui es estado de las comunicaciones con WIFI y MQTT es OK
-		Serial.println("Publicado Online en Topic LWT: " + (MiConfig.teleTopic + "/LWT"));
-		
-		lwtflag = true;
-
-	}
-
-
-	if (!susflag || !lwtflag){
-
-		// Si falla la suscripcion o el envio del Online malo kaka. Me desconecto para repetir el proceso.
-		ClienteMQTT.disconnect(false);
-
-	}
-
-	else{
-
-		// Si todo ha ido bien, proceso de inicio terminado.
-		MiAbonaMatico.ComOK = true;
-		Serial.print("** ");
-		Serial.print(ClienteNTP.getFormattedTime());
-		Serial.println(" - SISTEMA INICIADO CORRECTAMENTE **");
-
-	}
-
-}
-
-void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-  
-	Serial.println("Conexion MQTT: Desconectado.");
-
-}
-
-void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
-  
-		
-		String s_topic = String(topic);
-
-		// Para que no casque si no viene payload. Asi todo OK al gestor de comandos le llega vacio como debe ser, el JSON lo pone bien.
-		if (payload == NULL){
-
-			payload = "NULL";
-
-		}
-	
-		// Lo que viene en el char* payload viene de un buffer que trae KAKA, hay que limpiarlo (para eso nos pasan len y tal)
-		char c_payload[len+1]; 										// Array para el payload y un hueco mas para el NULL del final
-		strlcpy(c_payload, payload, len+1); 			// Copiar del payload el tamaño justo. strcopy pone al final un NULL
-		
-		// Y ahora lo pasamos a String que esta limpito
-		String s_payload = String(c_payload);
-
-		// Sacamos el prefijo del topic, o sea lo que hay delante de la primera /
-		int Indice1 = s_topic.indexOf("/");
-		String Prefijo = s_topic.substring(0, Indice1);
-		
-		// Si el prefijo es cmnd se lo mandamos al manejador de comandos
-		if (Prefijo == "cmnd") { 
-
-			// Sacamos el "COMANDO" del topic, o sea lo que hay detras de la ultima /
-			int Indice2 = s_topic.lastIndexOf("/");
-			String Comando = s_topic.substring(Indice2 + 1);
-
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject& ObjJson = jsonBuffer.createObject();
-			ObjJson.set("COMANDO",Comando);
-			ObjJson.set("PAYLOAD",s_payload);
-
-			char JSONmessageBuffer[100];
-			ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-			//Serial.println(String(ObjJson.measureLength()));
-
-			// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
-			//xQueueSend(ColaComandos, &JSONmessageBuffer, 0);
-			ColaComandos.push(&JSONmessageBuffer);
-						
-		}
-
-		
-}
-
-void onMqttPublish(uint16_t packetId) {
-  
-	// Al publicar no hacemos nada de momento.
-
-}
-
 // Manda a la cola de respuestas el mensaje de respuesta. Esta funcion la uso como CALLBACK para el objeto AbonaMatico
 void MandaRespuesta(String comando, String payload) {
 
-			String t_topic = MiConfig.statTopic + "/" + comando;
+	String t_topic = MiConfig.statTopic + "/" + comando;
 
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject& ObjJson = jsonBuffer.createObject();
-			// Tipo de mensaje (MQTT, SERIE, BOTH)
-			ObjJson.set("TIPO","BOTH");
-			// Comando
-			ObjJson.set("CMND",comando);
-			// Topic (para MQTT)
-			ObjJson.set("MQTTT",t_topic);
-			// RESPUESTA
-			ObjJson.set("RESP",payload);
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& ObjJson = jsonBuffer.createObject();
+	// Tipo de mensaje (MQTT, SERIE, BOTH)
+	ObjJson.set("TIPO","BOTH");
+	// Comando
+	ObjJson.set("CMND",comando);
+	// Topic (para MQTT)
+	ObjJson.set("MQTTT",t_topic);
+	// RESPUESTA
+	ObjJson.set("RESP",payload);
 
-			char JSONmessageBuffer[300];
-			ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-			
-			// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
-			ColaRespuestas.push(&JSONmessageBuffer); 
+	char JSONmessageBuffer[300];
+	ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+	
+	// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
+	ColaRespuestas.push(&JSONmessageBuffer); 
+
+}
+
+
+void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
+
+	
+	switch (Evento_Comunicaciones)
+	{
+	case Comunicaciones::EVENTO_CONECTANDO:
+	
+		Serial.print("MQTT - CONECTANDO: ");
+		Serial.println(String(Info));
+		break;
+	
+	case Comunicaciones::EVENTO_CONECTADO:
+
+		Serial.print("MQTT - CONECTADO: ");
+		Serial.println(String(Info));
+		break;
+
+	case Comunicaciones::EVENTO_MSG_RX:
+
+		Serial.print("MQTT - MSG_RX: ");
+		Serial.println(String(Info));
+		ColaComandos.push(Info);
+		break;
+
+	default:
+		break;
+	}
+
 
 }
 
 // envia al topic tele la telemetria en Json
 void MandaTelemetria() {
 	
-	if (ClienteMQTT.connected()){
 
-			String t_topic = MiConfig.teleTopic + "/INFO1";
+	String t_topic = MiConfig.teleTopic + "/INFO1";
 
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject& ObjJson = jsonBuffer.createObject();
-			ObjJson.set("TIPO","MQTT");
-			ObjJson.set("CMND","TELE");
-			ObjJson.set("MQTTT",t_topic);
-			ObjJson.set("RESP",MiAbonaMatico.MiEstadoJson(1));
-			
-			char JSONmessageBuffer[300];
-			ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-			
-			// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
-			ColaRespuestas.push(&JSONmessageBuffer); 
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& ObjJson = jsonBuffer.createObject();
+	ObjJson.set("TIPO","MQTT");
+	ObjJson.set("CMND","TELE");
+	ObjJson.set("MQTTT",t_topic);
+	ObjJson.set("RESP",MiAbonaMatico.MiEstadoJson(1));
+	
+	char JSONmessageBuffer[300];
+	ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+	
+	// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
+	ColaRespuestas.push(&JSONmessageBuffer); 
 
-	}
 	
 }
+
 
 #pragma endregion
 
@@ -282,9 +201,9 @@ void MandaTelemetria() {
 // Tarea para vigilar la conexion con el MQTT y conectar si no estamos conectados
 void TaskGestionRed () {
 
-		if (WiFi.isConnected() && !ClienteMQTT.connected()){
+		if (WiFi.isConnected() && !MisComunicaciones.IsConnected()){
 			
-			ClienteMQTT.connect();
+			MisComunicaciones.Conectar();
 			
 		}
 		
@@ -293,10 +212,8 @@ void TaskGestionRed () {
 //Tarea para procesar la cola de comandos recibidos
 void TaskProcesaComandos (){
 
-
 	char JSONmessageBuffer[100];
-	
-			
+				
 			// Limpiar el Buffer
 			memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
 
@@ -364,9 +281,12 @@ void TaskProcesaComandos (){
 
 						if (MiConfig.escribeconfig()){
 
-							ClienteMQTT.setServer(MiConfig.mqttserver, 1883);
-							ClienteMQTT.setCredentials(MiConfig.mqttusuario,MiConfig.mqttpassword);
-							ClienteMQTT.setWill(MiConfig.lwtTopic.c_str(),2,true,"Offline");
+							MisComunicaciones.SetMqttServidor(MiConfig.mqttserver);
+							MisComunicaciones.SetMqttUsuario(MiConfig.mqttusuario);
+							MisComunicaciones.SetMqttPassword(MiConfig.mqttpassword);
+							MisComunicaciones.SetMqttTopic(MiConfig.mqtttopic);
+							MisComunicaciones.SetMqttClientId("SINIMPLEMENTAR");
+
 							WiFi.begin(MiConfig.Wssid, MiConfig.WPasswd);
 
 						}
@@ -438,9 +358,6 @@ void TaskEnviaRespuestas(){
 
 				DynamicJsonBuffer jsonBuffer;
 
-				//Para Debug
-				//Serial.println(JSONmessageBuffer);
-
 				JsonObject& ObjJson = jsonBuffer.parseObject(JSONmessageBuffer);
 
 				if (ObjJson.success()) {
@@ -452,15 +369,14 @@ void TaskEnviaRespuestas(){
 					
 					if (TIPO == "BOTH"){
 
-						//Serial.println(MQTTT.c_str());
-						ClienteMQTT.publish(MQTTT.c_str(), 2, false, RESP.c_str());
+						MisComunicaciones.Enviar(MQTTT, RESP);
 						Serial.println(ClienteNTP.getFormattedTime() + " " + CMND + " " + RESP);
 						
 					}
 
 					else 	if (TIPO == "MQTT"){
 
-						ClienteMQTT.publish(MQTTT.c_str(), 2, false, RESP.c_str());
+						MisComunicaciones.Enviar(MQTTT, RESP);
 																								
 					}
 					
@@ -592,8 +508,6 @@ Task TaskMandaTelemetriaHandler (5000, TASK_FOREVER, &TaskMandaTelemetria, &MiTa
 Task TaskComandosSerieRunHandler (100, TASK_FOREVER, &TaskComandosSerieRun, &MiTaskScheduler, false);
 Task TaskGestionRedHandler (30000, TASK_FOREVER, &TaskGestionRed, &MiTaskScheduler, false);	
 
-
-
 #pragma endregion
 
 #pragma region Funcion Setup() de ARDUINO
@@ -611,13 +525,12 @@ void setup() {
 	MiAbonaMatico.SetRespondeComandoCallback(MandaRespuesta);
 		
 	// Comunicaciones
-	ClienteMQTT = AsyncMqttClient();
+	
 	WiFi.onEvent(WiFiEventCallBack);
 
 	// Iniciar la Wifi
 	WiFi.begin();
 
-	//MiTaskScheduler.init();
 
 	// Iniciar el sistema de ficheros
 	SPIFFStatus = SPIFFS.begin();
@@ -629,20 +542,7 @@ void setup() {
 		// Leer la configuracion de Comunicaciones
 		if (MiConfig.leeconfig()){
 
-			// Las funciones callback de la libreria MQTT	
-			ClienteMQTT.onConnect(onMqttConnect);
-  			ClienteMQTT.onDisconnect(onMqttDisconnect);
-  			ClienteMQTT.onMessage(onMqttMessage);
-  			ClienteMQTT.onPublish(onMqttPublish);
-  			ClienteMQTT.setServer(MiConfig.mqttserver, 1883);
-			ClienteMQTT.setCleanSession(true);
-			ClienteMQTT.setClientId("AbonaMatico");
-			ClienteMQTT.setCredentials(MiConfig.mqttusuario,MiConfig.mqttpassword);
-			ClienteMQTT.setKeepAlive(4);
-			ClienteMQTT.setWill(MiConfig.lwtTopic.c_str(),2,true,"Offline");
-
 			// Tarea de gestion de la conexion MQTT. Lanzamos solo si conseguimos leer la configuracion
-
 			TaskGestionRedHandler.enable();
 	
 		}
@@ -659,6 +559,14 @@ void setup() {
 
 	}
 	
+	// Configurar todo el objeto Miscomunicaciones
+	MisComunicaciones.SetEventoCallback(EventoComunicaciones);
+	MisComunicaciones.SetMqttServidor(MiConfig.mqttserver);
+	MisComunicaciones.SetMqttUsuario(MiConfig.mqttusuario);
+	MisComunicaciones.SetMqttPassword(MiConfig.mqttpassword);
+	MisComunicaciones.SetMqttClientId(MiConfig.mqtttopic);
+	MisComunicaciones.SetMqttTopic(MiConfig.mqtttopic);
+
 	// TASKS
 	Serial.println("Habilitando tareas del sistema.");
 		
@@ -669,7 +577,7 @@ void setup() {
 	TaskComandosSerieRunHandler.enable();
 	
 	// Init Completado.
-	Serial.println("Setup Completado.");
+	Serial.println("Funcion Setup Completada - Tareas Scheduler y loop en marcha");
 
 	// Iniciar Mecanica para pruebas forzando el estado a Sin Iniciar (cosa que solo se debe hacer si no esta puesta la jeringuilla)
 	//Serial.println("Iniciando Mecanica desde Setup");
