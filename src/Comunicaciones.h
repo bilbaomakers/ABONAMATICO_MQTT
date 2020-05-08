@@ -29,12 +29,12 @@ private:
     void onMqttPublish(uint16_t packetId);
     
     // Variables internas de configuracion para el objeto MQTT
-    char mqttserver[40] = "127.0.0.1";
-	char mqttport[6] = "1883";
-	char mqtttopic[33] = "NOTOPIC";
-	char mqttusuario[19] = "guest";
-	char mqttpassword[19] = "nopasswd";
-    char mqttclientid[15] = "noclientid";
+    char mqttserver[40];
+	char mqttport[6];
+	char mqtttopic[33];
+	char mqttusuario[19];
+	char mqttpassword[19];
+    char mqttclientid[33];
 
     String cmndTopic;
 	String statTopic;
@@ -49,6 +49,7 @@ public:
     
     enum Tipo_Evento_Comunicaciones {
 
+        EVENTO_CONECTANDO,              // Cuando iniciamos una conexion MQTT
 		EVENTO_CONECTADO,				// Cuando se conecta al broker
 		EVENTO_DESCONECTADO,	    	// Cuando se desconecta del Broker
 		EVENTO_MSG_RX,	            	// Cuando recibo un mensaje
@@ -59,11 +60,11 @@ public:
     Comunicaciones();
     ~Comunicaciones();
     
-    void SetMqttServidor(char l_mqttserver[40]);       // Configurar el servidor MQTT
+    void SetMqttServidor(char* l_mqttserver);            // Configurar el servidor MQTT
     void SetMqttUsuario(char l_mqttusuario[19]);        // Configurar el usuario
     void SetMqttPassword(char l_mqttpassword[19]);       // Configurar la contraseña
-    void SetMqttTopic(char l_mqtttopic[33]);          // Configurar el topic base
-    void SetMqttClientId(char l_mqttclientid[15]);          // Configurar el topic base
+    void SetMqttTopic(char l_mqtttopic[33]);            // Configurar el topic base
+    void SetMqttClientId(char l_mqttclientid[33]);          // Configurar el topic base
     
     void SetEventoCallback(TipoCallbackEvento ref);	// Para pasarme el manejador de eventos
 
@@ -73,9 +74,7 @@ public:
     void Desonectar();
     
     bool IsConnected();         // Para saber si esta conectado
-
-    void Run();
- 
+    
 
 };
 

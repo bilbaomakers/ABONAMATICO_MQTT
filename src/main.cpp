@@ -89,7 +89,7 @@ Scheduler MiTaskScheduler;
 
 #pragma endregion
 
-#pragma region Funciones de gestion de las conexiones Wifi
+#pragma region Funciones de Eventos y Telemetria
 
 // Funcion ante un evento de la wifi
 void WiFiEventCallBack(WiFiEvent_t event) {
@@ -115,10 +115,6 @@ void WiFiEventCallBack(WiFiEvent_t event) {
 		
 }
 
-#pragma endregion
-
-#pragma region Funciones de gestion de Colas y Telemetria
-
 // Manda a la cola de respuestas el mensaje de respuesta. Esta funcion la uso como CALLBACK para el objeto AbonaMatico
 void MandaRespuesta(String comando, String payload) {
 
@@ -140,6 +136,38 @@ void MandaRespuesta(String comando, String payload) {
 	
 	// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
 	ColaRespuestas.push(&JSONmessageBuffer); 
+
+}
+
+
+void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
+
+	
+	switch (Evento_Comunicaciones)
+	{
+	case Comunicaciones::EVENTO_CONECTANDO:
+	
+		Serial.print("MQTT - CONECTANDO: ");
+		Serial.println(String(Info));
+		break;
+	
+	case Comunicaciones::EVENTO_CONECTADO:
+
+		Serial.print("MQTT - CONECTADO: ");
+		Serial.println(String(Info));
+		break;
+
+	case Comunicaciones::EVENTO_MSG_RX:
+
+		Serial.print("MQTT - MSG_RX: ");
+		Serial.println(String(Info));
+		ColaComandos.push(Info);
+		break;
+
+	default:
+		break;
+	}
+
 
 }
 
@@ -480,8 +508,6 @@ Task TaskMandaTelemetriaHandler (5000, TASK_FOREVER, &TaskMandaTelemetria, &MiTa
 Task TaskComandosSerieRunHandler (100, TASK_FOREVER, &TaskComandosSerieRun, &MiTaskScheduler, false);
 Task TaskGestionRedHandler (30000, TASK_FOREVER, &TaskGestionRed, &MiTaskScheduler, false);	
 
-
-
 #pragma endregion
 
 #pragma region Funcion Setup() de ARDUINO
@@ -505,9 +531,6 @@ void setup() {
 	// Iniciar la Wifi
 	WiFi.begin();
 
-	// Configurar todo el objeto Miscomunicaciones
-	***
-
 
 	// Iniciar el sistema de ficheros
 	SPIFFStatus = SPIFFS.begin();
@@ -519,11 +542,7 @@ void setup() {
 		// Leer la configuracion de Comunicaciones
 		if (MiConfig.leeconfig()){
 
-			// Las funciones callback de la libreria MQTT	
-			
-
 			// Tarea de gestion de la conexion MQTT. Lanzamos solo si conseguimos leer la configuracion
-
 			TaskGestionRedHandler.enable();
 	
 		}
@@ -540,6 +559,14 @@ void setup() {
 
 	}
 	
+	// Configurar todo el objeto Miscomunicaciones
+	MisComunicaciones.SetEventoCallback(EventoComunicaciones);
+	MisComunicaciones.SetMqttServidor(MiConfig.mqttserver);
+	MisComunicaciones.SetMqttUsuario(MiConfig.mqttusuario);
+	MisComunicaciones.SetMqttPassword(MiConfig.mqttpassword);
+	MisComunicaciones.SetMqttClientId(MiConfig.mqtttopic);
+	MisComunicaciones.SetMqttTopic(MiConfig.mqtttopic);
+
 	// TASKS
 	Serial.println("Habilitando tareas del sistema.");
 		
@@ -550,7 +577,7 @@ void setup() {
 	TaskComandosSerieRunHandler.enable();
 	
 	// Init Completado.
-	Serial.println("Setup Completado.");
+	Serial.println("Funcion Setup Completada - Tareas Scheduler y loop en marcha");
 
 	// Iniciar Mecanica para pruebas forzando el estado a Sin Iniciar (cosa que solo se debe hacer si no esta puesta la jeringuilla)
 	//Serial.println("Iniciando Mecanica desde Setup");

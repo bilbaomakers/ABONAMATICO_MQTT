@@ -8,7 +8,13 @@
 AsyncMqttClient ClienteMQTT;
 
 Comunicaciones::Comunicaciones(){
-     
+
+    strcpy(mqttserver,"127.0.0.1");
+    strcpy(mqttport,"1883");
+    strcpy(mqtttopic, "NOTOPIC");
+    strcpy(mqttusuario, "mosquitto");
+    strcpy(mqttpassword, "nopasswd");
+    strcpy(mqttclientid, "noclientid");
     
 }
 
@@ -24,30 +30,30 @@ void Comunicaciones::SetEventoCallback(TipoCallbackEvento ref){
 
 }
 
-void Comunicaciones::SetMqttServidor(char l_mqttserver[40]){
+void Comunicaciones::SetMqttServidor(char* l_mqttserver){
 
-    strncpy(mqttserver, l_mqttserver, sizeof(l_mqttserver));
+    strcpy(mqttserver, l_mqttserver);
     this->Desonectar();
     
 }
 
 void Comunicaciones::SetMqttUsuario(char l_mqttusuario[19]){
 
-    strncpy(mqttusuario, l_mqttusuario, sizeof(l_mqttusuario));
+    strcpy(mqttusuario, l_mqttusuario);
     this->Desonectar();
 
 }
 
 void Comunicaciones::SetMqttPassword(char l_mqttpassword[19]){
 
-    strncpy(mqttpassword, l_mqttpassword, sizeof(l_mqttpassword));
+    strcpy(mqttpassword, l_mqttpassword);
     this->Desonectar();
 
 }
 
 void Comunicaciones::SetMqttTopic(char l_mqtttopic[33]){
 
-    strncpy(mqtttopic, l_mqtttopic, sizeof(l_mqtttopic));
+    strcpy(mqtttopic, l_mqtttopic);
     this->FormaEstructuraTopics();
     this->Desonectar();
 
@@ -55,7 +61,7 @@ void Comunicaciones::SetMqttTopic(char l_mqtttopic[33]){
 
 void Comunicaciones::SetMqttClientId(char l_mqttclientid[15]){
 
-    strncpy(mqttclientid, l_mqttclientid, sizeof(l_mqttclientid));
+    strcpy(mqttclientid, l_mqttclientid);
     this->Desonectar();
 
 }
@@ -69,7 +75,6 @@ void Comunicaciones::FormaEstructuraTopics(){
 
 }
 
-
 bool Comunicaciones::IsConnected(){
 
     return ClienteMQTT.connected();
@@ -77,6 +82,10 @@ bool Comunicaciones::IsConnected(){
 }
 
 void Comunicaciones::Conectar(){
+
+    char Mensaje[100];
+    //strcpy(Mensaje, "MQTT: Configurando cliente MQTT");
+    //this->MiCallbackEventos(EVENTO_CONECTANDO, Mensaje);
 
     ClienteMQTT = AsyncMqttClient();
 
@@ -86,7 +95,7 @@ void Comunicaciones::Conectar(){
     ClienteMQTT.setCleanSession(true);
     ClienteMQTT.setClientId(mqttclientid);
     ClienteMQTT.setCredentials(mqttusuario,mqttpassword);
-    ClienteMQTT.setKeepAlive(4);
+    //ClienteMQTT.setKeepAlive(4);
     ClienteMQTT.setWill(lwtTopic.c_str(),2,true,"Offline");
 
     // Aqui vamos a explicar por que esto, que deberia ser lo "normal" no funciona y lo que hay que hacer    
@@ -108,9 +117,13 @@ void Comunicaciones::Conectar(){
     ClienteMQTT.onDisconnect(std::bind(&Comunicaciones::onMqttDisconnect, this, std::placeholders::_1));
     ClienteMQTT.onMessage(std::bind(&Comunicaciones::onMqttMessage, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
     ClienteMQTT.onPublish(std::bind(&Comunicaciones::onMqttPublish, this, std::placeholders::_1));
-
-
-
+    
+    // Y despues de todo esto conectar
+    strcpy(Mensaje, ("Intentando conectar a " + String(mqttserver)).c_str());
+    this->MiCallbackEventos(EVENTO_CONECTANDO, Mensaje);
+    
+    ClienteMQTT.connect();
+    
 }
 
 void Comunicaciones::Enviar(String Topic, String Payload){
@@ -125,8 +138,6 @@ void Comunicaciones::Desonectar(){
     ClienteMQTT.disconnect();
     
 }
-
-
 
 void Comunicaciones::onMqttConnect(bool sessionPresent) {
 
@@ -154,7 +165,7 @@ void Comunicaciones::onMqttConnect(bool sessionPresent) {
 	if (!susflag || !lwtflag){
 
 		// Si falla la suscripcion o el envio del Online malo kaka. Me desconecto para repetir el proceso.
-        strcpy(Mensaje, "MQTT: Algo falla al suscribirme a los topics");
+        strcpy(Mensaje, "Algo falla al suscribirme a los topics");
         MiCallbackEventos(EVENTO_DESCONECTADO, Mensaje);
 		this->Desonectar();
 
@@ -162,7 +173,7 @@ void Comunicaciones::onMqttConnect(bool sessionPresent) {
 
 	else{
 
-        strcpy(Mensaje, "MQTT: Conectado y suscrito correctamente");
+        strcpy(Mensaje, "Conectado y suscrito correctamente");
         MiCallbackEventos(EVENTO_CONECTADO, Mensaje);
 
 	}
