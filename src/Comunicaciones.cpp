@@ -95,7 +95,7 @@ void Comunicaciones::Conectar(){
     ClienteMQTT.setCleanSession(true);
     ClienteMQTT.setClientId(mqttclientid);
     ClienteMQTT.setCredentials(mqttusuario,mqttpassword);
-    //ClienteMQTT.setKeepAlive(4);
+    ClienteMQTT.setKeepAlive(4);
     ClienteMQTT.setWill(lwtTopic.c_str(),2,true,"Offline");
 
     // Aqui vamos a explicar por que esto, que deberia ser lo "normal" no funciona y lo que hay que hacer    

@@ -600,8 +600,6 @@ void loop() {
 	MiAbonaMatico.RunFast();
 	MiTaskScheduler.execute();
 
-	
-
 }
 
 #pragma endregion
