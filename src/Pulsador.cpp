@@ -6,8 +6,9 @@ Pulsador::Pulsador(int pin, int modo){
    	
     pinswitch = pin;
 	pinMode(pinswitch, modo);
-	estado_debounce_swhome = EDB_IDLE;
-	millis_debounce_swhome = 0;
+	estado_debounce = EDB_IDLE;
+	estado_debounce_anterior = EDB_DETECTADO_CAMBIO;
+	millis_debounce = 0;
     debouncetime = 50;
 
 }
@@ -15,7 +16,7 @@ Pulsador::Pulsador(int pin, int modo){
 
 int Pulsador::LeeEstado (){
 
-    return estado_debounce_swhome;
+    return estado_debounce;
 
 }
 
@@ -25,20 +26,22 @@ void Pulsador::Run(){
    	// Leo fisicamente el switch
 	int l_lecturaswhome = digitalRead(pinswitch);
 
+	
+
 	// Si he leido un estado distinto de que se supone que tenia el Switch (el estado del switch es una enum, 0,1,2).... 
 	// Estoy comparando un bool con un int pero teoricamente si es 2 pues tampoco es ni 0 ni 1, sera suficientemente listo?
-	if (l_lecturaswhome != estado_debounce_swhome){
-
+	if (l_lecturaswhome != estado_debounce){
+	
 		//Si no esta en DETECTADO_CAMBIO, pues a detectectado 
 		if (l_lecturaswhome != EDB_DETECTADO_CAMBIO){
 
-			millis_debounce_swhome = millis();
-			estado_debounce_swhome = EDB_DETECTADO_CAMBIO;
+			millis_debounce = millis();
+			estado_debounce = EDB_DETECTADO_CAMBIO;
 
 		}
 			
 		// Y si esta en DETECTADO cambio y ha pasado el tiempo de debounce
-		else if ((millis() - millis_debounce_swhome) > debouncetime){
+		else if ((millis() - millis_debounce) > debouncetime){
 
 			
 
@@ -47,12 +50,12 @@ void Pulsador::Run(){
 
 				case LOW:
 
-					estado_debounce_swhome = EDB_IDLE;
+					estado_debounce = EDB_IDLE;
 					break;
 
 				case HIGH:
 
-					estado_debounce_swhome = EDB_PULSADO;
+					estado_debounce = EDB_PULSADO;
 					break;
 
 			}

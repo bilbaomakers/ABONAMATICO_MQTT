@@ -3,6 +3,9 @@
 
 // ENTRADAS
 #define PINHOME D6
+#define ENCODER_PUSH_PIN D5
+#define ENCODER_CLK D3
+#define ENCODER_DATA D4
 
 #define DEBOUNCESWHOME 50
 

@@ -11,13 +11,14 @@
 
 FlexyStepper stepper;
 Pulsador SwitchHome (PINHOME, INPUT_PULLUP);
-
+Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP);
 
 AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
 
 	SwitchHome.debouncetime = DEBOUNCESWHOME;
+	EncoderPush.debouncetime = DEBOUNCESWHOME;
 
 	pinMode(ENABLE_MOTOR, OUTPUT);
 	digitalWrite(ENABLE_MOTOR,0);
@@ -262,9 +263,11 @@ void AbonaMatico::MecanicaRun(){
 					// En otro caso para arriba (incluso en Pulsador::EDB_DETECTADO_CAMBIO)
 					default:
 				
-						Serial.println ("INIT: Alcanzado Home, Subiendo a POSMAX");
+						Serial.println ("INIT: Alcanzado Home, Subiendo a POSABIERTO");
+						stepper.setSpeedInMillimetersPerSecond(2);
+						stepper.setAccelerationInMillimetersPerSecondPerSecond(2);
 						stepper.setCurrentPositionInRevolutions(0);
-						stepper.setTargetPositionInMillimeters(POSMAX);				
+						stepper.setTargetPositionInMillimeters(POSABIERTO);				
 						Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
 						this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 						break;
@@ -279,7 +282,7 @@ void AbonaMatico::MecanicaRun(){
 		// En caso de subiendo .....		
 		case EM_INICIALIZANDO_SUBIENDO:
 
-			// Si esta parado el motor porque ya hemos llegado a POSMAX									
+			// Si esta parado el motor porque ya hemos llegado a POSABIERTO									
 			if (stepper.motionComplete()){
 
 				// Cambiar la mecanica de estado
@@ -293,6 +296,45 @@ void AbonaMatico::MecanicaRun(){
 
 		break;
 		
+
+		case EM_ABIERTA:
+
+			if (EncoderPush.LeeEstado() == Pulsador::EDB_PULSADO){
+
+				Serial.println ("INIT: Jeringuilla Puesta Bajando a POSMAX");
+				stepper.setSpeedInMillimetersPerSecond(1);
+				stepper.setAccelerationInMillimetersPerSecondPerSecond(1);
+				stepper.setCurrentPositionInRevolutions(0);
+				stepper.setTargetPositionInMillimeters(POSMAX);				
+				Estado_Mecanica = EM_ACTIVA_EN_MOVIMIENTO;
+				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
+				break;
+
+			}
+		
+		break;
+
+		case EM_ACTIVA_EN_MOVIMIENTO:
+
+			if(stepper.motionComplete()){
+
+				Estado_Mecanica=EM_ACTIVA_PARADA;
+				HayQueSalvar=true;
+
+			}
+
+		break;
+
+		case EM_ACTIVA_PARADA:
+
+			if(!stepper.motionComplete()){
+
+				Estado_Mecanica=EM_ACTIVA_EN_MOVIMIENTO;
+				
+			}			
+
+
+
 		// Por si las moscas porque no hemos implementado aun todos los casos
 		default:
 
@@ -325,6 +367,7 @@ void AbonaMatico::Run() {
 void AbonaMatico::RunFast(){
 
 	SwitchHome.Run();
+	EncoderPush.Run();
 	this->MecanicaRun();
 	stepper.processMovement();
 

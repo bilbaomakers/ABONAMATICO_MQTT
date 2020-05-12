@@ -7,7 +7,7 @@ class Pulsador{
 private:
 
  
-    unsigned long millis_debounce_swhome;
+    unsigned long millis_debounce;
 
     int pinswitch;
 
@@ -19,7 +19,7 @@ public:
 		EDB_PULSADO,
 		EDB_DETECTADO_CAMBIO,
 		
-	}estado_debounce_swhome;
+	}estado_debounce, estado_debounce_anterior;
 
 
     unsigned long debouncetime;
