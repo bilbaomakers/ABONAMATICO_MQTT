@@ -10,7 +10,7 @@ class AbonaMatico
 
 
 private:
-    
+
     bool HayQueSalvar;
 	String mificheroconfig;
 
@@ -27,12 +27,12 @@ private:
 	static AbonaMatico* sAbonaMatico;			// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
 
 	// para el estado del switch home
-	int estado_home;
+	// cint estado_home;
 
 	// Funciones privadas
 	
 	void MecanicaRun();														// Funcion para el gobierno de la mecanica
-
+	
 public:
 
     AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP);

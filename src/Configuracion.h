@@ -1,11 +1,14 @@
 
 // Conexiones Del ESP8266
 
+// ENTRADAS
+#define PINHOME D6
+
+#define DEBOUNCESWHOME 50
+
 // SALIDAS
 #define PINLED D7
 
-// ENTRADAS
-#define PINHOME D6
 
 // STEPPER
 #define PASOS_MOTOR 200         // Pasos por vuelta

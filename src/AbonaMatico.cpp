@@ -6,22 +6,19 @@
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
 #include <FS.h>							// Libreria Sistema de Ficheros
 #include <Configuracion.h>				// Fichero de configuracion
-//#include <A4988.h>					// Para el stepper
-//#include <A4988_Stepper.h>				// La libreria Stepper que usa Tasmota
 #include <FlexyStepper.h>
-#include <Bounce2.h>
+#include <Pulsador.h>
 
 FlexyStepper stepper;
-//Bounce HomeSWDebounced = Bounce();
+Pulsador SwitchHome (PINHOME, INPUT_PULLUP);
+
 
 AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
 
-	detachInterrupt(digitalPinToInterrupt(PINHOME));
-	pinMode(PINHOME, INPUT_PULLUP);
-	//HomeSWDebounced.attach(PINHOME);
-	//HomeSWDebounced.interval(5);
+	SwitchHome.debouncetime = DEBOUNCESWHOME;
+
 	pinMode(ENABLE_MOTOR, OUTPUT);
 	digitalWrite(ENABLE_MOTOR,0);
 	pinMode(PINLED, OUTPUT);
@@ -31,30 +28,32 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 	HayQueSalvar = false;
 	mificheroconfig = fich_config_AbonaMatico;
     
-	//stepper = FlexyStepper();
-
 	// Estados iniciales
 	Estado_Mecanica = EM_SIN_INICIAR;
 	Estado_Comunicaciones = EC_SIN_CONEXION;
 	Estado_Riegamatico = ER_SIN_CONEXION;
 
-	//estado_home = HomeSWDebounced.read();
-
+	// Mi Configuracion
 	this->LeeConfig();
+
+	// STEPPER
+	stepper = FlexyStepper();
 
 	stepper.connectToPins(STEP_MOTOR, DIR_MOTOR);
 	stepper.setTargetPositionToStop();
 	stepper.setStepsPerRevolution(PASOS_MOTOR);
+	stepper.setStepsPerMillimeter((PASOS_MOTOR*MICROPASOS)/PASOTRANSMISION);	
+
 	//stepper.setSpeedInStepsPerSecond((float)200);
 	//stepper.setSpeedInRevolutionsPerSecond(2);
 	//stepper.setAccelerationInRevolutionsPerSecondPerSecond(1);
-	//stepper.setStepsPerMillimeter((PASOS_MOTOR*MICROPASOS)/PASOTRANSMISION);	
 	//stepper.setStepsPerMillimeter(200/3);
 	//stepper.setSpeedInMillimetersPerSecond(1);
 	//stepper.setAccelerationInMillimetersPerSecondPerSecond(1);
 	
 }
 
+// Callback para la funcion que pasa las respuestas a main
 void AbonaMatico::SetRespondeComandoCallback(RespondeComandoCallback ref) {
 
 	MiRespondeComandos = (RespondeComandoCallback)ref;
@@ -90,7 +89,7 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 		jObj.set("EC", (unsigned int)Estado_Comunicaciones);			// Estado de las Comunicaciones
 		jObj.set("ER", (unsigned int)Estado_Riegamatico);				// Estado del Riegamatico
 		jObj.set("PM", stepper.getCurrentPositionInRevolutions());		// Posicion del Motor
-		jObj.set("SH", estado_home);									// Switch Home
+		jObj.set("SH", (unsigned int)SwitchHome.LeeEstado());			// Switch Home
 		jObj.set("MR", !stepper.motionComplete());						// Motor Running
 		jObj.set("RC", rtc_info->reason);								// Reset Cause (1=WTD reset)
 
@@ -190,24 +189,33 @@ void AbonaMatico::IniciaMecanica(){
 
 	//estado_home = HomeSWDebounced.read();
 
+	// Solo se puede iniciar la mecanica si esta en este estado
 	if (Estado_Mecanica == EM_SIN_INICIAR){
 		
-		stepper.setCurrentPositionInRevolutions(0);
+		// Resetear posicion y cambiado estado a BAJANDO (que es el siguiente estado)
+		
 		Estado_Mecanica = EM_INICIALIZANDO_BAJANDO;
 		this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 						
-		if (stepper.motionComplete() && estado_home == LOW){
+		// Si el motor esta parado y el SW HOME en IDLE
+		if (stepper.motionComplete() && SwitchHome.LeeEstado() == Pulsador::EDB_IDLE){
 
 			// No ponemos a mover para abajo todo el recorrido, y ya el resto en el mecanicarun
 			Serial.println ("INIT: Moviendo a HOME");
 			//stepper.setTargetPositionInMillimeters(POSABIERTO);
-			stepper.setSpeedInRevolutionsPerSecond(3);
-			stepper.setTargetPositionInRevolutions(POSMAX/PASOTRANSMISION);
+
+			stepper.setSpeedInMillimetersPerSecond(1);
+			stepper.setAccelerationInMillimetersPerSecondPerSecond(1);
+			stepper.setCurrentPositionInMillimeters(0);
+			stepper.setTargetPositionInMillimeters(POSMAX*-1);
 			
 		}
+
+		// Si no es que estamos parados y abajo ya, asi que la maquina de estado hara su trabajo para esta situacion
 		
 	}
 
+	// Si la mecanica no esta en el estado correcto para inicializar entonces no hacer nada, solo avisar.
 	else {
 
 		Serial.print ("ATENCION: No se puede inicializar la mecanica en el estado actual: ");
@@ -225,45 +233,54 @@ void AbonaMatico::MecanicaRun(){
 	//estado_home = HomeSWDebounced.read();
 
 	// Sempre que se detecte el end switch a 1 parar el motor al instante ya veremos en otra parte que hacer segun el estado de la maquina.
-	if (!stepper.motionComplete() && estado_home == HIGH){
+	if (!stepper.motionComplete() && SwitchHome.LeeEstado() == Pulsador::EDB_PULSADO){
 		
 		stepper.setTargetPositionToStop();
 		
 	}
-	/*
+	
 	// Aqui la secuencia de la mecanica
 	switch (Estado_Mecanica){
 
 		case EM_INICIALIZANDO_BAJANDO:
-			
-			// Si estamos andando para abajo. No hacer nada
+					
+			// Si el motor esta parado
+			if (stepper.motionComplete()){
 
-			// Si estamos en Home Parados. Andar para arriba el recorrido total
-			if (stepper.motionComplete() && estado_home){
+				// Miramos el estado del switch de home
+				switch (SwitchHome.LeeEstado()){
 
-				// en este caso nos movemos hasta arriba del todo
-				Serial.println ("INIT: Alcanzado Home, Subiendo a POSMAX");
-				stepper.setCurrentPositionInRevolutions(0);
-				stepper.setTargetPositionInMillimeters(POSABIERTO*-1);				
-				Estado_Mecanica = EM_ERROR;
-				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
+					// Si no esta pulsado algo malo ha pasado en la mecanica
+					case Pulsador::EDB_IDLE:
 
-			}
+						// en este caso nos movemos hasta arriba del todo
+						Serial.println ("INIT: Error en la mecanica");		
+						Estado_Mecanica = EM_ERROR;
+						this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
+						break;
+										
+					// En otro caso para arriba (incluso en Pulsador::EDB_DETECTADO_CAMBIO)
+					default:
+				
+						Serial.println ("INIT: Alcanzado Home, Subiendo a POSMAX");
+						stepper.setCurrentPositionInRevolutions(0);
+						stepper.setTargetPositionInMillimeters(POSMAX);				
+						Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
+						this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
+						break;
 
-			else if (stepper.motionComplete() && !estado_home){
+				}
 
-				// en este caso nos movemos hasta arriba del todo
-				Serial.println ("INIT: Error en la mecanica");		
-				Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
-				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 
 			}
 
 		break;
-		
+
+		// En caso de subiendo .....		
 		case EM_INICIALIZANDO_SUBIENDO:
-									
-			if (stepper.motionComplete() && !estado_home){
+
+			// Si esta parado el motor porque ya hemos llegado a POSMAX									
+			if (stepper.motionComplete()){
 
 				// Cambiar la mecanica de estado
 				Estado_Mecanica = EM_ABIERTA;
@@ -274,32 +291,22 @@ void AbonaMatico::MecanicaRun(){
 
 			}
 
-			if (stepper.motionComplete() && estado_home){
-
-				// Cambiar la mecanica de estado
-				Estado_Mecanica = Tipo_Estado_Mecanica::EM_ERROR;
-				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
-				Serial.println ("INIT: Fallo en el Switch Home");
-				HayQueSalvar=true;
-
-			}
-			
-
 		break;
 		
+		// Por si las moscas porque no hemos implementado aun todos los casos
 		default:
 
 			stepper.setTargetPositionToStop();
 			Estado_Mecanica = Tipo_Estado_Mecanica::EM_ERROR;
+			//Serial.println ("ERROR: Estado de la mecanica no implementado");
 
 		break;
 	}
-	*/
+	
 
 }
 
-
-// Esta funcion se lanza desde una Task y hace las "cosas periodicas de la clase". No debe atrancarse nunca tampoco por supuesto (ni esta ni ninguna)
+// Esta funcion se lanza desde una Task y hace las "cosas periodicas lentas de la clase". No debe atrancarse nunca tampoco por supuesto (ni esta ni ninguna)
 void AbonaMatico::Run() {
 	
 	// UpTime Minutos
@@ -314,11 +321,11 @@ void AbonaMatico::Run() {
 
 }
 
-
+// Funcion de vida, lo mas rapido posible
 void AbonaMatico::RunFast(){
 
-	//HomeSWDebounced.update();
+	SwitchHome.Run();
 	this->MecanicaRun();
 	stepper.processMovement();
-	
+
 }
