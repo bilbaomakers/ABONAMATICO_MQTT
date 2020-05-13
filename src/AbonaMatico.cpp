@@ -30,8 +30,8 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 AccelStepper stepper;
 
 // El Objeto para los switches
-Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME);
-Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLDOWN_16, DEBOUNCESWUSER);
+Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
+Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, true);
 
 AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
 
@@ -54,13 +54,14 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 
 	// AccelStepper
 	
-	stepper = AccelStepper(AccelStepper::DRIVER, STEP_MOTOR , DIR_MOTOR);
+	stepper = AccelStepper(AccelStepper::FUNCTION, STEP_MOTOR ,DIR_MOTOR);
 		
 	stepper.setEnablePin(ENABLE_MOTOR);
 	stepper.setMaxSpeed(VMAX_MOTOR);
 	stepper.setAcceleration(PASOS_MOTOR);
-	stepper.setPinsInverted(false, false, true);	
+	stepper.setPinsInverted(true, true, false);	
 	stepper.setCurrentPosition(0);
+	stepper.setMinPulseWidth(500);
 	PosicionMM = 0;
 	PasosPorMilimetro = PASOS_MOTOR / PASOTRANSMISION;
 		

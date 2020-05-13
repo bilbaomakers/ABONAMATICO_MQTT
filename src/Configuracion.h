@@ -20,7 +20,7 @@
 #define DIR_MOTOR D0            // Pin de direccion
 #define STEP_MOTOR D1           // Pin de pasos
 #define ENABLE_MOTOR D2         // Pin de enable
-#define VMAX_MOTOR 200          // Velocidad maxima del motor en pasos por segundo
+#define VMAX_MOTOR 1000          // Velocidad maxima del motor en pasos por segundo
 
 // Y la geometria de la maquina en mm
 #define PASOTRANSMISION 1           // Paso del husillo de la transmision en mm (mm por vuelta)

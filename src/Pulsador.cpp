@@ -14,7 +14,7 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include "Arduino.h"
 
 
-Pulsador::Pulsador(int pin, int modo, unsigned long DebounceTimeMS){
+Pulsador::Pulsador(int pin, int modo, unsigned long DebounceTimeMS, bool invert){
    	
     pinswitch = pin;
 	pinMode(pinswitch, modo);
@@ -22,6 +22,7 @@ Pulsador::Pulsador(int pin, int modo, unsigned long DebounceTimeMS){
 	estado_debounce_anterior = EDB_IDLE;
 	millis_debounce = 0;
     debouncetime = DebounceTimeMS;
+	invertir=invert;
 
 }
 
@@ -36,7 +37,7 @@ int Pulsador::LeeEstado (){
 void Pulsador::Run(){
 
    	// Leo fisicamente el switch
-	int l_lecturaswhome = digitalRead(pinswitch);
+	int l_lecturaswhome = digitalRead(pinswitch) ^ invertir;
 
 	// Si he leido un estado distinto de que se supone que tenia el Switch (el estado del switch es una enum, 0,1,2).... 
 	// Estoy comparando un bool con un int pero teoricamente si es 2 pues tampoco es ni 0 ni 1, sera suficientemente listo?

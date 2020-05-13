@@ -22,6 +22,8 @@ private:
 
     int pinswitch;
 
+    bool invertir;
+
 public:
 
     enum Estado_Debounce {
@@ -35,7 +37,7 @@ public:
 
     unsigned long debouncetime;
 
-    Pulsador(int pin, int modo, unsigned long DebounceTimeMS);
+    Pulsador(int pin, int modo, unsigned long DebounceTimeMS, bool invert);
     ~Pulsador(){};
 
     int LeeEstado();
