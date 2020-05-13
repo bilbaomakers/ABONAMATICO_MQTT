@@ -278,36 +278,19 @@ void AbonaMatico::MecanicaRun(){
 			if (!stepper.isRunning()){
 
 				Serial.println("Motor Parado en Home");
-				// Miramos el estado del switch de home
-				switch (SwitchHome.LeeEstado()){
-
-					// Si no esta pulsado algo malo ha pasado en la mecanica
-					case Pulsador::EDB_IDLE:
-
-						// en este caso nos movemos hasta arriba del todo
-						Serial.println ("INIT: Error en la mecanica");		
-						Estado_Mecanica = EM_ERROR;
-						this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
-						break;
-										
-					// En otro caso para arriba (incluso en Pulsador::EDB_DETECTADO_CAMBIO)
-					default:
 				
-						Serial.println ("INIT: Alcanzado Home, Subiendo a POSABIERTO");
-						
-						//AccelStepper
-						stepper.setMaxSpeed(VMAX_MOTOR);
-						stepper.setAcceleration(VMAX_MOTOR);
-						stepper.setCurrentPosition(0);
-						stepper.enableOutputs();
-						stepper.moveTo(POSABIERTO * PasosPorMilimetro);
+				Serial.println ("INIT: Alcanzado Home, Subiendo a POSABIERTO");
+				
+				//AccelStepper
+				stepper.setMaxSpeed(VMAX_MOTOR);
+				stepper.setAcceleration(VMAX_MOTOR);
+				stepper.setCurrentPosition(0);
+				stepper.enableOutputs();
+				stepper.moveTo(POSABIERTO * PasosPorMilimetro);
 
-						Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
-						this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
-						break;
-
-				}
-
+				Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
+				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
+				break;
 
 			}
 
