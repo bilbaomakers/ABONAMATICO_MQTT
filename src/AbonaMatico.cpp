@@ -232,7 +232,7 @@ void AbonaMatico::IniciaMecanica(){
 			stepper.setAcceleration(VMAX_MOTOR/2);
 			stepper.setCurrentPosition(0);
 			stepper.enableOutputs();
-			stepper.moveTo(POSMAX * PasosPorMilimetro);
+			stepper.moveTo(POSMAX * PasosPorMilimetro * -1);
 			
 		}
 
@@ -259,21 +259,19 @@ void AbonaMatico::MecanicaRun(){
 
 	// Actualizar la posicion en mm
 	PosicionMM = (stepper.currentPosition()/PASOS_MOTOR)*PASOTRANSMISION ;
-
-	// Sempre que se detecte el end switch a 1 parar el motor al instante ya veremos en otra parte que hacer segun el estado de la maquina.
-	if (stepper.isRunning() && SwitchHome.LeeEstado() == Pulsador::EDB_PULSADO ){
-		
-		
-		Serial.println("Detectado Home. Parando motor");
-		stepper.stop();
-		
-	}
 	
 	// Aqui la secuencia de la mecanica
 	switch (Estado_Mecanica){
 
 		case EM_INICIALIZANDO_BAJANDO:
-					
+
+			if (stepper.isRunning() && SwitchHome.LeeEstado() == Pulsador::EDB_PULSADO){
+				
+			Serial.println("Detectado Home. Parando motor");
+			stepper.stop();
+		
+			}
+
 			// Si el motor esta parado
 			if (!stepper.isRunning()){
 
@@ -324,7 +322,6 @@ void AbonaMatico::MecanicaRun(){
 				//AccelStepper
 				stepper.setMaxSpeed(VMAX_MOTOR/2);
 				stepper.setAcceleration(VMAX_MOTOR/2);
-				stepper.setCurrentPosition(0);
 				stepper.enableOutputs();
 				stepper.moveTo(POSMAX * PasosPorMilimetro);
 
