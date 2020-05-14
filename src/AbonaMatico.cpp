@@ -220,6 +220,7 @@ void AbonaMatico::IniciaMecanica(){
 		// Resetear posicion y cambiado estado a BAJANDO (que es el siguiente estado)
 		
 		Estado_Mecanica = EM_INICIALIZANDO_BAJANDO;
+		HayQueSalvar = true;
 		this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 						
 		// Si el motor esta parado y el SW HOME en IDLE
@@ -255,13 +256,12 @@ void AbonaMatico::IniciaMecanica(){
 
 }
 
-
+// Actualizar la variable interna con el estado del riegamatico. Desde el MAIN que es donde se procesa la telemetria
 void AbonaMatico::SetEstadoRiegamatico (Tipo_Estado_Riegamatico (estado)){
 
 	Estado_Riegamatico = estado;
 
 }
-
 
 // Maquina de estado de la mecanica
 void AbonaMatico::MecanicaRun(){
