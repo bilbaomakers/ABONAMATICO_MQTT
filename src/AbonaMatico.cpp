@@ -255,6 +255,14 @@ void AbonaMatico::IniciaMecanica(){
 
 }
 
+
+void AbonaMatico::SetEstadoRiegamatico (Tipo_Estado_Riegamatico (estado)){
+
+	Estado_Riegamatico = estado;
+
+}
+
+
 // Maquina de estado de la mecanica
 void AbonaMatico::MecanicaRun(){
 

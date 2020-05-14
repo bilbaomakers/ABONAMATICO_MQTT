@@ -88,8 +88,8 @@ public:
 	enum Tipo_Estado_Riegamatico {
 
 		ER_SIN_CONEXION,				// No hay conexion con el riegamatico
-		ER_OFFLINE,						// Hay conexion con el riegamatico pero no esta en estado operativo
-		ER_ACTIVO,						// hay conexion con el riegamatico y esta operativo
+		ER_CONECTADO_NOREADY,			// Hay conexion con el riegamatico pero no esta en estado operativo
+		ER_CONRECTADO_READY,			// hay conexion con el riegamatico y esta operativo
 
 	}Estado_Riegamatico;
 
@@ -110,6 +110,7 @@ public:
 	void Recargar();
 
 	// Funciones con RIEGAMATICO
+	void SetEstadoRiegamatico (Tipo_Estado_Riegamatico (estado));
 	
 	// funciones publicas de configuracion
 	void SetML();

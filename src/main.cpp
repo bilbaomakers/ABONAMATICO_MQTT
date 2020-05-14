@@ -44,13 +44,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 
 #pragma region Objetos
 
-// Para la conexion MQTT
-// AsyncMqttClient ClienteMQTT;
-
 // Manejadores Colas para comunicaciones inter-tareas
-//QueueHandle_t ColaComandos,ColaRespuestas;
-Queue ColaComandos(100, 10, IMPLEMENTATION);	// Instantiate queue
-Queue ColaRespuestas(300, 10, IMPLEMENTATION);	// Instantiate queue
+Queue ColaComandos(300, 10, IMPLEMENTATION);	// Cola para los comandos recibidos
+Queue ColaTelemetria(300, 10, IMPLEMENTATION);	// Cola para la telemetria recibida
+Queue ColaRespuestas(300, 10, IMPLEMENTATION);	// Cola para las respuestas a enviar
 
 // Flag para el estado del sistema de ficheros
 boolean SPIFFStatus = false;
@@ -155,9 +152,9 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 
 	case Comunicaciones::EVENTO_TELE_RX:
 
-		Serial.print("MQTT - TELE_RX: ");
-		Serial.println(String(Info));
-		//ColaComandos.push(Info);
+		//Serial.print("MQTT - TELE_RX: ");
+		//Serial.println(String(Info));
+		ColaTelemetria.push(Info);
 	break;
 
 	default:
@@ -208,7 +205,7 @@ void TaskGestionRed () {
 //Tarea para procesar la cola de comandos recibidos
 void TaskProcesaComandos (){
 
-	char JSONmessageBuffer[100];
+	char JSONmessageBuffer[300];
 				
 			// Limpiar el Buffer
 			memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
@@ -340,6 +337,94 @@ void TaskProcesaComandos (){
 	
 }
 
+// Tarea para procesar la telemetria recibida
+void TaskProcesaTelemetria(){
+
+
+			char JSONmessageBuffer[300];
+				
+			// Limpiar el Buffer
+			memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
+
+			//if (xQueueReceive(ColaComandos,&JSONmessageBuffer,0) == pdTRUE ){
+			if (ColaTelemetria.pull(&JSONmessageBuffer)){
+
+				String COMANDO;
+				String PAYLOAD;
+				DynamicJsonBuffer jsonBuffer;
+				JsonObject& ObjJson = jsonBuffer.parseObject(JSONmessageBuffer);
+
+				if (ObjJson.success()) {
+				
+					COMANDO = ObjJson["COMANDO"].as<String>();
+					PAYLOAD = ObjJson["PAYLOAD"].as<String>();
+					
+					// Procesar los mensajes de Telemetria
+
+					if (COMANDO == "LWT"){
+												
+						if (PAYLOAD == "Online"){
+
+							MiAbonaMatico.SetEstadoRiegamatico(AbonaMatico::ER_CONECTADO_NOREADY);
+							Serial.println("Detectado Riegamatico LWT: " + PAYLOAD);
+
+						}
+
+						else {
+
+							MiAbonaMatico.SetEstadoRiegamatico(AbonaMatico::ER_SIN_CONEXION);
+							Serial.println("Detectado Riegamatico LWT: " + PAYLOAD);
+
+						}
+
+
+					}
+
+					else if (COMANDO == "INFO2"){
+
+						JsonObject& ObjJson = jsonBuffer.parseObject(PAYLOAD);
+						if (ObjJson.success()){
+
+							Serial.println("Recibida Telemetria del RiemaMatico");
+							Serial.println("BOMBA RGM: " + ObjJson["BOMBACUR"].as<String>());
+							Serial.println("FLUJO RGM: " + ObjJson["FLUJO"].as<String>());
+							Serial.println("CICLOS: " + ObjJson["NCICLOS"].as<String>());
+							Serial.println("TCICLO: " + ObjJson["TCICLO"].as<String>());
+
+						}
+
+						else{
+
+							Serial.println("La telemetria JSON esta mal pasada");
+
+						}
+
+						
+
+					}
+					
+					else {
+
+						//Serial.println("Me ha llegado un paquete de telemetria que no proceso.");
+						//Serial.println("Comando: " + COMANDO);
+						//Serial.println("Payload: " + PAYLOAD);
+
+					}
+
+				}
+
+				// Y si por lo que sea la libreria JSON no puede convertir el comando recibido
+				else {
+
+						Serial.println("La tarea de procesar telemetria ha recibido un paquete JSON mal formado.");
+						
+				}
+			
+			}
+
+}
+
+
 // Tarea para procesar la cola de respuestas
 void TaskEnviaRespuestas(){
 
@@ -455,7 +540,7 @@ void TaskComandosSerieRun(){
 				ObjJson.set("COMANDO",comando);
 				ObjJson.set("PAYLOAD",parametro1);
 
-				char JSONmessageBuffer[100];
+				char JSONmessageBuffer[300];
 				ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
 			
 				// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
@@ -497,6 +582,7 @@ void TaskMandaTelemetria(){
 // Definir aqui las tareas (no en SETUP como en FreeRTOS)
 
 Task TaskProcesaComandosHandler (100, TASK_FOREVER, &TaskProcesaComandos, &MiTaskScheduler, false);
+Task TaskProcesaTelemetriaHandler (1000, TASK_FOREVER, &TaskProcesaTelemetria, &MiTaskScheduler, false);
 Task TaskEnviaRespuestasHandler (100, TASK_FOREVER, &TaskEnviaRespuestas, &MiTaskScheduler, false);
 Task TaskAbonaMaticoRunHandler (100, TASK_FOREVER, &TaskAbonaMaticoRun, &MiTaskScheduler, false);
 Task TaskMandaTelemetriaHandler (5000, TASK_FOREVER, &TaskMandaTelemetria, &MiTaskScheduler, false);
@@ -566,6 +652,7 @@ void setup() {
 	Serial.println("Habilitando tareas del sistema.");
 		
 	TaskProcesaComandosHandler.enable();
+	TaskProcesaTelemetriaHandler.enable();
 	TaskEnviaRespuestasHandler.enable();
 	TaskAbonaMaticoRunHandler.enable();
 	TaskMandaTelemetriaHandler.enable();
