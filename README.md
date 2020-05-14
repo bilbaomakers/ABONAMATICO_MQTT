@@ -19,6 +19,6 @@ https://bilbaomakers.org/
 Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 
 
-Notas de la vesion:
+Notas del Branch:
 
 Branch AccelStepper: Usando esa libreria en ESP8266 las velocidades son horribles, hace falta alimentar la libreria mucho mas rapido que el timing del loop o algo por el estilo. No es valido para este proyecto.
