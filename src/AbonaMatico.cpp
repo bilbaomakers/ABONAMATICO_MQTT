@@ -1,6 +1,4 @@
-
 /*
-
 # ABONAMATICO 1.0
 # Inyector de Abono en el riego con capcidades MQTT
 Desarrollado con Visual Code + PlatformIO en Framework Arduino
@@ -11,8 +9,6 @@ Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@dieg
 https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
 Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0.html
-
-
 */
 
 #include <AbonaMatico.h>
@@ -32,6 +28,7 @@ FlexyStepper stepper;
 Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
 Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, true);
 
+// Constructor de la  Clase
 AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
@@ -136,6 +133,7 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 	
 }
 
+// Funcion para salvar la configuracion en el fichero
 boolean AbonaMatico::SalvaConfig(){
 	
 
@@ -160,6 +158,7 @@ boolean AbonaMatico::SalvaConfig(){
 
 }
 
+// Funcion para leer la configuracion desde el fichero
 boolean AbonaMatico::LeeConfig(){
 
 	// Sacar del fichero de configuracion, si existe, las configuraciones permanentes
@@ -199,6 +198,7 @@ boolean AbonaMatico::LeeConfig(){
 
 }
 
+// Funcion para poner la mecanica en estado 0
 void AbonaMatico::ResetMecanica(){
 
 
@@ -208,8 +208,7 @@ void AbonaMatico::ResetMecanica(){
 
 }
 
-// Funcion para inicializar la mecanica. Se puede forzar pero NO si estamos en estado de la mecanica activo antes forzar a vacio.
-// Basicamente cambia estados, la funcion mecanicarun sabra que hacer
+// Funcion para disparar el ciclo de inicio de la mecanica. La mecanica tiene que estar en estado 0
 void AbonaMatico::IniciaMecanica(){
 
 
@@ -256,7 +255,7 @@ void AbonaMatico::IniciaMecanica(){
 
 }
 
-// Aqui implementar todo el funcionamiento de la mecanica. Se lanza desde el runfast
+// Maquina de estado de la mecanica
 void AbonaMatico::MecanicaRun(){
 
 
@@ -384,7 +383,7 @@ void AbonaMatico::MecanicaRun(){
 }
 
 // Esta funcion se lanza desde una Task y hace las "cosas periodicas lentas de la clase". No debe atrancarse nunca tampoco por supuesto (ni esta ni ninguna)
-void AbonaMatico::Run() {
+void AbonaMatico::TaskRun() {
 	
 	// UpTime Minutos
 	t_uptime = 0;

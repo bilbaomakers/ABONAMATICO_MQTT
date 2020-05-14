@@ -96,8 +96,8 @@ public:
 
 	// Funciones Publicas
 	String MiEstadoJson(int categoria);								// Devuelve un JSON con los estados en un array de 100 chars (la libreria MQTT no puede con mas de 100)
-	void Run();														// Actualiza las propiedades de estado de este objeto en funcion del estado de motores y sensores
-    void RunFast();													// Funcion para las tareas rapidas, como las del objeto stepper.
+	void TaskRun();													// Funcion periodica de Tareas (update lento)
+    void RunFast();													// Funcion de vida para las tareas rapidas, como las del objeto stepper.
 	
 	void SetRespondeComandoCallback(RespondeComandoCallback ref);	// Definir la funcion para pasarnos la funcion de callback del enviamensajes
 	boolean LeeConfig();

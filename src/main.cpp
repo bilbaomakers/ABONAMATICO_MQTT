@@ -1,7 +1,4 @@
-#pragma region COMENTARIOS
-
 /*
-
 # ABONAMATICO 1.0
 # Inyector de Abono en el riego con capcidades MQTT
 Desarrollado con Visual Code + PlatformIO en Framework Arduino
@@ -12,17 +9,9 @@ Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@dieg
 https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
 Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0.html
-
-
 */
 
-#pragma endregion
-
-#pragma region INCLUDES
-
-
-
-// Librerias comantadas en proceso de sustitucion por la WiFiMQTTManager
+#pragma region INCLUDES y DEFINES
 
 #include <TaskScheduler.h>				// Task Scheduler
 #include <cppQueue.h>					// Libreria para uso de colas.
@@ -44,10 +33,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 // TaskScheduler options:
 //#define _TASK_TIMECRITICAL    // Enable monitoring scheduling overruns
 #define _TASK_SLEEP_ON_IDLE_RUN // Enable 1 ms SLEEP_IDLE powerdowns between tasks if no callback methods were invoked during the pass 
-#define _TASK_STATUS_REQUEST  // Compile with support for StatusRequest functionality - triggering tasks on status change events in addition to time only
+#define _TASK_STATUS_REQUEST  	// Compile with support for StatusRequest functionality - triggering tasks on status change events in addition to time only
 //#define _TASK_WDT_IDS         // Compile with support for wdt control points and task ids
 //#define _TASK_LTS_POINTER     // Compile with support for local task storage pointer
-//#define _TASK_PRIORITY          // Support for layered scheduling priority
+//#define _TASK_PRIORITY        // Support for layered scheduling priority
 //#define _TASK_MICRO_RES       // Support for microsecond resolutionMM
 //#define _TASK_DEBUG
 
@@ -139,7 +128,7 @@ void MandaRespuesta(String comando, String payload) {
 
 }
 
-
+// Funcion ante un Evento de la libreria de comunicaciones
 void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
 
 	
@@ -483,7 +472,7 @@ void TaskComandosSerieRun(){
 void TaskAbonaMaticoRun(){
 
 
-		MiAbonaMatico.Run();
+		MiAbonaMatico.TaskRun();
 
 
 }
@@ -596,7 +585,7 @@ void loop() {
 
 	ArduinoOTA.handle();
 	ESP.wdtFeed();
-	//ClienteNTP.update();
+	ClienteNTP.update();
 	MiAbonaMatico.RunFast();
 	ESP.wdtFeed();
 	MiTaskScheduler.execute();
