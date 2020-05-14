@@ -19,6 +19,4 @@ https://bilbaomakers.org/
 Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 
 
-Notas del Branch:
-
-Implementando clase Pulsador. Tengo un crash considerable.
+Notas del Branch Desarrollo:
