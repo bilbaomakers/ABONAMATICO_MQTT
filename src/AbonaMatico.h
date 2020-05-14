@@ -28,29 +28,26 @@ class AbonaMatico
 
 private:
 
-    bool HayQueSalvar;
-	String mificheroconfig;
+	// Variables Privadas
 
-	unsigned long t_uptime;						// Para el tiempo que llevamos en marcha
+    bool HayQueSalvar;															// Flag para indicar que hay que salvar en el ciclo run
+	String mificheroconfig;														// Para el nombre del fichero de configuracion
 
-	int PasosPorMilimetro;						// Numero de pasos para mover un milimetro
+	unsigned long t_uptime;														// Para el tiempo que llevamos en marcha
 
-    typedef void(*RespondeComandoCallback)(String comando, String respuesta);			// Definir como ha de ser la funcion de Callback (que le tengo que pasar y que devuelve)
-	RespondeComandoCallback MiRespondeComandos = nullptr;								// Definir el objeto que va a contener la funcion que vendra de fuera AQUI en la clase.
+	int PasosPorMilimetro;														// Numero de pasos para mover un milimetro
+	bool Frenando;																// Flag para saber que hemos dado la orden de parada y no repetirla
 
-	// Para almacenar Alias (referencia) al objeto tipo NTPClient para poder usar en la clase el que viene del Main
-    NTPClient &ClienteNTP;
+	NTPClient &ClienteNTP;														// Para almacenar Alias (referencia) al objeto tipo NTPClient para poder usar en la clase el que viene del Main
+	static AbonaMatico* sAbonaMatico;											// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
 
-	//ICACHE_RAM_ATTR static void ISRHomeSwitch();		 		// Funcion servicio interrupcion switch home
-
-	static AbonaMatico* sAbonaMatico;			// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
-
-	// para el estado del switch home
-	// cint estado_home;
-
+	
 	// Funciones privadas
 	
-	void MecanicaRun();														// Funcion para el gobierno de la mecanica
+	typedef void(*RespondeComandoCallback)(String comando, String respuesta);	// Definir como ha de ser la funcion de Callback (que le tengo que pasar y que devuelve)
+	RespondeComandoCallback MiRespondeComandos = nullptr;						// Definir el objeto que va a contener la funcion que vendra de fuera AQUI en la clase.
+
+	void MecanicaRun();															// Funcion para el gobierno de la mecanica
 		
 
 public:

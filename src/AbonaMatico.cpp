@@ -23,11 +23,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <FS.h>							// Libreria Sistema de Ficheros
 #include <Configuracion.h>				// Fichero de configuracion
 #include <FlexyStepper.h>
-#include <AccelStepper.h>
 #include <Pulsador.h>
 
 // El Objeto para el stepper
-AccelStepper stepper;
+FlexyStepper stepper;
 
 // El Objeto para los switches
 Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
@@ -37,8 +36,9 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
 
-	pinMode(PINLED, OUTPUT);
+	pinMode(PINLED, OUTPUT);					// el LED
 	digitalWrite(PINLED,1);
+	
 	HardwareInfo = "AbonaMatico-1.0";
 	ComOK = false;
 	HayQueSalvar = false;
@@ -52,18 +52,19 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 	// Mi Configuracion
 	this->LeeConfig();
 
-	// AccelStepper
+	// Stepper
 	
-	stepper = AccelStepper(AccelStepper::FUNCTION, STEP_MOTOR ,DIR_MOTOR);
+	stepper.connectToPins(STEP_MOTOR ,DIR_MOTOR);
+	stepper.setSpeedInStepsPerSecond(VMAX_MOTOR);
+	stepper.setAccelerationInStepsPerSecondPerSecond(PASOS_MOTOR);
+	stepper.setCurrentPositionInSteps(0);
+
+	pinMode(ENABLE_MOTOR, OUTPUT);					// Enable del motor
 		
-	stepper.setEnablePin(ENABLE_MOTOR);
-	stepper.setMaxSpeed(VMAX_MOTOR);
-	stepper.setAcceleration(PASOS_MOTOR);
-	stepper.setPinsInverted(true, true, false);	
-	stepper.setCurrentPosition(0);
-	stepper.setMinPulseWidth(500);
 	PosicionMM = 0;
 	PasosPorMilimetro = PASOS_MOTOR / PASOTRANSMISION;
+
+	Frenando = false;
 		
 }
 
@@ -105,7 +106,7 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 		jObj.set("PM", PosicionMM);										// Posicion de la mecanica
 		jObj.set("SH", (unsigned int)SwitchHome.LeeEstado());			// Switch Home
 		jObj.set("SU", (unsigned int)EncoderPush.LeeEstado());			// Switch User (Pulsador del Encoder)
-		//jObj.set("MR", stepper.isRunning());							// Motor Running
+		jObj.set("MR", !stepper.motionComplete());						// Motor Running
 		jObj.set("RC", rtc_info->reason);								// Reset Cause (1=WTD reset)
 
 		break;
@@ -141,7 +142,7 @@ boolean AbonaMatico::SalvaConfig(){
 	File mificheroconfig_handler = SPIFFS.open(mificheroconfig, "w");
 
 	if (!mificheroconfig_handler) {
-		Serial.println("No se puede abrir el fichero de configuracion de mi proyecto");
+		Serial.println("ABM: No se puede abrir el fichero de configuracion de mi proyecto");
 		return false;
 	}
 
@@ -175,7 +176,7 @@ boolean AbonaMatico::LeeConfig(){
 			JsonObject& json = jsonBuffer.parseObject(buf.get());
 			if (json.success()) {
 
-				Serial.print("Configuracion Abonamatico Leida: ");
+				Serial.print("ABM: Configuracion Abonamatico Leida: ");
 				json.printTo(Serial);
 				Serial.println("");
 
@@ -223,17 +224,18 @@ void AbonaMatico::IniciaMecanica(){
 		this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 						
 		// Si el motor esta parado y el SW HOME en IDLE
-		if (!stepper.isRunning() && SwitchHome.LeeEstado() == Pulsador::EDB_IDLE){
+		if (stepper.motionComplete() && SwitchHome.LeeEstado() == Pulsador::EDB_IDLE){
 
 			// No ponemos a mover para abajo todo el recorrido, y ya el resto en el mecanicarun
-			Serial.println ("INIT: Moviendo a HOME");
+			Serial.println ("ABM: Moviendo a HOME");
 
 			//AccelStepper
-			stepper.setMaxSpeed(VMAX_MOTOR/2);
-			stepper.setAcceleration(VMAX_MOTOR/2);
-			stepper.setCurrentPosition(0);
-			stepper.enableOutputs();
-			stepper.moveTo(POSMAX * PasosPorMilimetro * -1);
+			stepper.setSpeedInStepsPerSecond(VMAX_MOTOR/2);
+			stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR/2);
+			stepper.setCurrentPositionInSteps(0);
+			digitalWrite(ENABLE_MOTOR,0);
+			Frenando=false;
+			stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * -1);
 			
 		}
 
@@ -244,7 +246,7 @@ void AbonaMatico::IniciaMecanica(){
 	// Si la mecanica no esta en el estado correcto para inicializar entonces no hacer nada, solo avisar.
 	else {
 
-		Serial.print ("ATENCION: No se puede inicializar la mecanica en el estado actual: ");
+		Serial.print ("ABM: ERROR, No se puede inicializar la mecanica en el estado actual: ");
 		Serial.println(Estado_Mecanica);
 		this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 
@@ -259,33 +261,35 @@ void AbonaMatico::MecanicaRun(){
 
 
 	// Actualizar la posicion en mm
-	PosicionMM = (stepper.currentPosition()/PASOS_MOTOR)*PASOTRANSMISION ;
+	PosicionMM = (stepper.getCurrentPositionInSteps()/PASOS_MOTOR)*PASOTRANSMISION ;
 	
 	// Aqui la secuencia de la mecanica
 	switch (Estado_Mecanica){
 
 		case EM_INICIALIZANDO_BAJANDO:
 
-			if (stepper.isRunning() && SwitchHome.LeeEstado() == Pulsador::EDB_PULSADO){
+			if (!stepper.motionComplete() && SwitchHome.LeeEstado() == Pulsador::EDB_PULSADO && !Frenando){
 				
-			Serial.println("Detectado Home. Parando motor");
-			stepper.stop();
+			Serial.println("ABM: Detectado Home. Parando motor.");
+			stepper.setTargetPositionToStop();
+			Frenando = true;
 		
 			}
 
 			// Si el motor esta parado
-			if (!stepper.isRunning()){
+			if (stepper.motionComplete()){
 
-				Serial.println("Motor Parado en Home");
+				Serial.println("ABM: Motor Parado en Home");
 				
-				Serial.println ("INIT: Alcanzado Home, Subiendo a POSABIERTO");
+				Serial.println ("ABM: Alcanzado Home, Subiendo a POSABIERTO");
 				
 				//AccelStepper
-				stepper.setMaxSpeed(VMAX_MOTOR);
-				stepper.setAcceleration(VMAX_MOTOR);
-				stepper.setCurrentPosition(0);
-				stepper.enableOutputs();
-				stepper.moveTo(POSABIERTO * PasosPorMilimetro);
+				stepper.setSpeedInStepsPerSecond(VMAX_MOTOR);
+				stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR);
+				stepper.setCurrentPositionInSteps(0);
+				digitalWrite(ENABLE_MOTOR,0);
+				Frenando = false;
+				stepper.setTargetPositionInSteps(POSABIERTO * PasosPorMilimetro);
 
 				Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
@@ -299,14 +303,14 @@ void AbonaMatico::MecanicaRun(){
 		case EM_INICIALIZANDO_SUBIENDO:
 
 			// Si esta parado el motor porque ya hemos llegado a POSABIERTO									
-			if (!stepper.isRunning()){
+			if (stepper.motionComplete()){
 
 				// Cambiar la mecanica de estado
-				stepper.disableOutputs();
+				digitalWrite(ENABLE_MOTOR,1);
 				Estado_Mecanica = EM_ABIERTA;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
-				Serial.println ("INIT: Mecanica Inicializada correctamente");
-				Serial.println ("INIT: Proceda a poner la jeringuilla y continuar");
+				Serial.println ("ABM: Mecanica Inicializada correctamente");
+				Serial.println ("ABM: Proceda a poner la jeringuilla y continuar");
 				HayQueSalvar=true;
 
 			}
@@ -318,14 +322,14 @@ void AbonaMatico::MecanicaRun(){
 
 			if (EncoderPush.LeeEstado() == Pulsador::EDB_PULSADO){
 
-				Serial.println ("INIT: Jeringuilla Puesta Bajando a POSMAX");
+				Serial.println ("ABM: Jeringuilla Puesta Bajando a POSMAX");
 
 				//AccelStepper
-				stepper.setMaxSpeed(VMAX_MOTOR/2);
-				stepper.setAcceleration(VMAX_MOTOR/2);
-				stepper.enableOutputs();
-				stepper.moveTo(POSMAX * PasosPorMilimetro);
-
+				stepper.setSpeedInStepsPerSecond(VMAX_MOTOR/2);
+				stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR/2);
+				digitalWrite(ENABLE_MOTOR,0);
+				Frenando=false;
+				stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro);
 				Estado_Mecanica = EM_ACTIVA_EN_MOVIMIENTO;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 				break;
@@ -336,11 +340,12 @@ void AbonaMatico::MecanicaRun(){
 
 		case EM_ACTIVA_EN_MOVIMIENTO:
 
-			if(!stepper.isRunning()){
+			if(stepper.motionComplete()){
 
 				Estado_Mecanica=EM_ACTIVA_PARADA;
 				HayQueSalvar=true;
-				stepper.disableOutputs();
+				digitalWrite(ENABLE_MOTOR,1);
+				Serial.println("ABM: Movimiento completado. Mecanica OK");
 
 			}
 
@@ -348,9 +353,10 @@ void AbonaMatico::MecanicaRun(){
 
 		case EM_ACTIVA_PARADA:
 
-			if(stepper.isRunning()){
+			if(!stepper.motionComplete()){
 
 				Estado_Mecanica=EM_ACTIVA_EN_MOVIMIENTO;
+				Serial.println("ABM: Iniciando Movimiento");
 				
 			}			
 
@@ -366,9 +372,10 @@ void AbonaMatico::MecanicaRun(){
 		// Por si las moscas porque no hemos implementado aun todos los casos o si pasa algo raro
 		default:
 
-			stepper.stop();
+			stepper.setTargetPositionToStop();
+			Frenando=true;
 			Estado_Mecanica = Tipo_Estado_Mecanica::EM_ERROR;
-			//Serial.println ("ERROR: Estado de la mecanica no implementado");
+			Serial.println ("ABM: ERROR Estado de la mecanica no implementado.");
 
 		break;
 	}
@@ -400,7 +407,7 @@ void AbonaMatico::RunFast(){
 	ESP.wdtFeed();
 	this->MecanicaRun();
 	ESP.wdtFeed();
-	stepper.run();
+	stepper.processMovement();
 	ESP.wdtFeed();
 
 }
