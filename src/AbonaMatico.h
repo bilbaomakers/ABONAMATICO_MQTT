@@ -108,6 +108,8 @@ public:
 	void ResetMecanica();
 	void IniciaMecanica();
 	void Recargar();
+
+	// Funciones con RIEGAMATICO
 	
 	// funciones publicas de configuracion
 	void SetML();

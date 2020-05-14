@@ -129,7 +129,7 @@ void MandaRespuesta(String comando, String payload) {
 }
 
 // Funcion ante un Evento de la libreria de comunicaciones
-void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
+void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 
 	
 	switch (Evento_Comunicaciones)
@@ -138,20 +138,27 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
 	
 		Serial.print("MQTT - CONECTANDO: ");
 		Serial.println(String(Info));
-		break;
+	break;
 	
 	case Comunicaciones::EVENTO_CONECTADO:
 
 		Serial.print("MQTT - CONECTADO: ");
 		Serial.println(String(Info));
-		break;
+	break;
 
-	case Comunicaciones::EVENTO_MSG_RX:
+	case Comunicaciones::EVENTO_CMND_RX:
 
-		Serial.print("MQTT - MSG_RX: ");
+		Serial.print("MQTT - CMND_RX: ");
 		Serial.println(String(Info));
 		ColaComandos.push(Info);
-		break;
+	break;
+
+	case Comunicaciones::EVENTO_TELE_RX:
+
+		Serial.print("MQTT - TELE_RX: ");
+		Serial.println(String(Info));
+		//ColaComandos.push(Info);
+	break;
 
 	default:
 		break;
