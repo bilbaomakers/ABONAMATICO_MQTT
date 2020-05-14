@@ -21,4 +21,4 @@ Licencia: GNU General Public License v3.0 ( mas info en GitHub )
 
 Notas de la vesion:
 
-Version Comunicaciones. Voy a ver si hago una clase para el MQTT que me permita movel facilmente de ESP8266 a ESP32 y cambiar la libreria MQTT
+Branch AccelStepper: Usando esa libreria en ESP8266 las velocidades son horribles, hace falta alimentar la libreria mucho mas rapido que el timing del loop o algo por el estilo. No es valido para este proyecto.
