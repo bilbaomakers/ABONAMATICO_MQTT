@@ -11,7 +11,7 @@ Implementa el uso de tareas para multiproceso con la libreria TaskScheduler
 Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@diegomaroto.net
 https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
-Licencia: GNU General Public License v3.0 ( mas info en GitHub )
+Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0.html
 
 
 */
@@ -315,8 +315,7 @@ void TaskProcesaComandos (){
 
 					else if (COMANDO == "ResetMecanica"){
 
-						MiAbonaMatico.Estado_Mecanica = MiAbonaMatico.EM_SIN_INICIAR;
-						MandaRespuesta("ResetMecanica", String(MiAbonaMatico.Estado_Mecanica));
+						MiAbonaMatico.ResetMecanica();
 
 					}
 
@@ -596,9 +595,12 @@ void setup() {
 void loop() {
 
 	ArduinoOTA.handle();
+	ESP.wdtFeed();
 	//ClienteNTP.update();
 	MiAbonaMatico.RunFast();
+	ESP.wdtFeed();
 	MiTaskScheduler.execute();
+	ESP.wdtFeed();
 
 }
 
