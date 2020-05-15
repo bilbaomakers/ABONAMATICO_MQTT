@@ -51,9 +51,9 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 
 	// Stepper
 	
-	stepper.connectToPins(STEP_MOTOR ,DIR_MOTOR);
+	stepper.connectToPins(STEP_PIN ,DIR_PIN);
 	stepper.setSpeedInStepsPerSecond(VMAX_MOTOR);
-	stepper.setAccelerationInStepsPerSecondPerSecond(PASOS_MOTOR);
+	stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR);
 	stepper.setCurrentPositionInSteps(0);
 
 	pinMode(ENABLE_MOTOR, OUTPUT);					// Enable del motor
@@ -231,11 +231,11 @@ void AbonaMatico::IniciaMecanica(){
 
 			//AccelStepper
 			stepper.setSpeedInStepsPerSecond(VMAX_MOTOR/2);
-			stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR/2);
+			stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR);
 			stepper.setCurrentPositionInSteps(0);
 			digitalWrite(ENABLE_MOTOR,0);
 			Frenando=false;
-			stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * -1);
+			stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * -1 * INVERT_MOTOR);
 			
 		}
 
@@ -268,7 +268,7 @@ void AbonaMatico::MecanicaRun(){
 
 
 	// Actualizar la posicion en mm
-	PosicionMM = (stepper.getCurrentPositionInSteps()/PASOS_MOTOR)*PASOTRANSMISION ;
+	PosicionMM = (stepper.getCurrentPositionInSteps()/PASOS_MOTOR)*PASOTRANSMISION*INVERT_MOTOR ;
 	
 	// Aqui la secuencia de la mecanica
 	switch (Estado_Mecanica){
@@ -292,11 +292,11 @@ void AbonaMatico::MecanicaRun(){
 				
 				//AccelStepper
 				stepper.setSpeedInStepsPerSecond(VMAX_MOTOR);
-				stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR);
+				stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR);
 				stepper.setCurrentPositionInSteps(0);
 				digitalWrite(ENABLE_MOTOR,0);
 				Frenando = false;
-				stepper.setTargetPositionInSteps(POSABIERTO * PasosPorMilimetro);
+				stepper.setTargetPositionInSteps(POSABIERTO * PasosPorMilimetro * INVERT_MOTOR);
 
 				Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
@@ -333,10 +333,10 @@ void AbonaMatico::MecanicaRun(){
 
 				//AccelStepper
 				stepper.setSpeedInStepsPerSecond(VMAX_MOTOR/2);
-				stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR/2);
+				stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR/10);
 				digitalWrite(ENABLE_MOTOR,0);
 				Frenando=false;
-				stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro);
+				stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * INVERT_MOTOR);
 				Estado_Mecanica = EM_ACTIVA_EN_MOVIMIENTO;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 				break;
@@ -409,12 +409,12 @@ void AbonaMatico::TaskRun() {
 void AbonaMatico::RunFast(){
 
 	SwitchHome.Run();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 	EncoderPush.Run();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 	this->MecanicaRun();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 	stepper.processMovement();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 
 }

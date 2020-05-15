@@ -57,7 +57,7 @@ WiFiUDP UdpNtp;
 
 // Manejador del NTP. Cliente red, servidor, offset zona horaria, intervalo de actualizacion.
 // FALTA IMPLEMENTAR ALGO PARA CONFIGURAR LA ZONA HORARIA
-static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 3600);
+static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 1);
 
 // Para el manejador de ficheros de configuracion
 ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
@@ -135,12 +135,15 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 	
 		Serial.print("MQTT - CONECTANDO: ");
 		Serial.println(String(Info));
+
 	break;
 	
 	case Comunicaciones::EVENTO_CONECTADO:
 
 		Serial.print("MQTT - CONECTADO: ");
 		Serial.println(String(Info));
+		ClienteNTP.update();
+
 	break;
 
 	case Comunicaciones::EVENTO_CMND_RX:
@@ -148,6 +151,7 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 		Serial.print("MQTT - CMND_RX: ");
 		Serial.println(String(Info));
 		ColaComandos.push(Info);
+
 	break;
 
 	case Comunicaciones::EVENTO_TELE_RX:
@@ -155,10 +159,12 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 		//Serial.print("MQTT - TELE_RX: ");
 		//Serial.println(String(Info));
 		ColaTelemetria.push(Info);
+
 	break;
 
 	default:
-		break;
+	break;
+
 	}
 
 
@@ -678,12 +684,12 @@ void setup() {
 void loop() {
 
 	ArduinoOTA.handle();
-	ESP.wdtFeed();
-	ClienteNTP.update();
+	//ESP.wdtFeed();
+	//ClienteNTP.update();
 	MiAbonaMatico.RunFast();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 	MiTaskScheduler.execute();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 
 }
 
