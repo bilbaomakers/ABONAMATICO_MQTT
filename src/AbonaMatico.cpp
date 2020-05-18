@@ -21,7 +21,6 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <FlexyStepper.h>
 #include <Pulsador.h>
 #include <IndicadorLed.h>
-//#include <Encoder.h>
 #include <RotaryEncoder.h>
 
 // El Objeto para el stepper
@@ -67,6 +66,9 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, 
 	PasosPorMilimetro = PASOS_MOTOR / PASOTRANSMISION;
 
 	Frenando = false;
+
+	MiEncoder.setPosition(0);
+	EncoderPosicionAnterior = MiEncoder.getPosition();
 		
 }
 
@@ -400,8 +402,34 @@ void AbonaMatico::MecanicaRun(){
 
 void AbonaMatico::EncoderRun(){
 
+	if (Estado_Mecanica == EM_SIN_INICIAR){
 
-	MiEncoder.tick();
+		MiEncoder.tick();
+			
+		switch (MiEncoder.getDirection()){
+
+			// Bajar Mecanica
+			case  RotaryEncoder::Direction::CLOCKWISE:
+
+				stepper.setTargetPositionRelativeInSteps( MiEncoder.getPosition() * PasosPorMilimetro * INVERT_MOTOR * -1);
+				MiEncoder.setPosition(0);
+
+			break;
+
+			// Subir Mecanica
+			case RotaryEncoder::Direction::COUNTERCLOCKWISE:
+
+				stepper.setTargetPositionRelativeInSteps( MiEncoder.getPosition() * PasosPorMilimetro * INVERT_MOTOR);
+				MiEncoder.setPosition(0);
+
+			break;
+
+			default:
+			break;
+
+		};
+
+	}
 	
 }
 

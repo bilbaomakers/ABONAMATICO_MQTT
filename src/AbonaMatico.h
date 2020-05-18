@@ -42,6 +42,7 @@ private:
 	IndicadorLed &LedEstado;													// Para el Led de Estado
 	static AbonaMatico* sAbonaMatico;											// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
 
+	long EncoderPosicionAnterior;												// Para almacenar la posicion anterior del encoder
 	
 	// Funciones privadas
 	
