@@ -109,7 +109,7 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 		jObj.set("SU", (unsigned int)EncoderPush.LeeEstado());			// Switch User (Pulsador del Encoder)
 		jObj.set("PE", MiEncoder.getPosition());	     				// Posicion Encoder
 		jObj.set("MR", !stepper.motionComplete());						// Motor Running
-		jObj.set("RC", rtc_info->reason);								// Reset Cause (0=POWER ON, 1=WTD reset, 6=BOTON RESET, )
+		jObj.set("RC", rtc_info->reason);								// Reset Cause (0=POWER ON, 1=WTD reset, 4=SOFTWARE RESET, 6=BOTON RESET, )
 		jObj.set("RR", ESP.getResetReason());							// Reset Reason
 		
 		
