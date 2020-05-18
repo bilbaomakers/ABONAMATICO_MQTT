@@ -9,6 +9,7 @@
 // Tiempos debounce de los switches y pulsadores
 #define DEBOUNCESWHOME 50
 #define DEBOUNCESWUSER 50
+#define HOLDTIMESWUSER 2000
 
 // SALIDAS
 #define PINLED D7

@@ -28,8 +28,8 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 FlexyStepper stepper;
 
 // El Objeto para los switches
-Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
-Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, true);
+Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, 0, false);
+Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, HOLDTIMESWUSER, true);
 
 //Encoder MiEncoder(ENCODER_DATA, ENCODER_CLK);
 RotaryEncoder MiEncoder(ENCODER_DATA, ENCODER_CLK);
