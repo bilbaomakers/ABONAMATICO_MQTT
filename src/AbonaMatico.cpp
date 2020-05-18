@@ -20,6 +20,7 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <Configuracion.h>				// Fichero de configuracion
 #include <FlexyStepper.h>
 #include <Pulsador.h>
+#include <IndicadorLed.h>
 
 // El Objeto para el stepper
 FlexyStepper stepper;
@@ -29,7 +30,7 @@ Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
 Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, true);
 
 // Constructor de la  Clase
-AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
+AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, IndicadorLed& LedEstado) : ClienteNTP(ClienteNTP), LedEstado(LedEstado) {
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
 

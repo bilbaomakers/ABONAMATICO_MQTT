@@ -17,10 +17,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <Arduino.h>
 #include <NTPClient.h>					// Para la gestion de la hora por NTP
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
-//#include <A4988.h>						// Para el stepper
 #include <Configuracion.h>				// Fichero de configuracion
 #include <FlexyStepper.h>
 #include <AccelStepper.h>
+#include <IndicadorLed.h>
 
 class AbonaMatico
 {
@@ -39,6 +39,7 @@ private:
 	bool Frenando;																// Flag para saber que hemos dado la orden de parada y no repetirla
 
 	NTPClient &ClienteNTP;														// Para almacenar Alias (referencia) al objeto tipo NTPClient para poder usar en la clase el que viene del Main
+	IndicadorLed &LedEstado;													// Para el Led de Estado
 	static AbonaMatico* sAbonaMatico;											// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
 
 	
@@ -52,7 +53,9 @@ private:
 
 public:
 
-    AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP);
+	
+
+    AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, IndicadorLed& LedEstado);
     ~AbonaMatico() {};
 
     //  Variables Publicas

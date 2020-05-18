@@ -1,7 +1,8 @@
+#pragma once
+
 #include "Arduino.h"
 
 class IndicadorLed{
-
 
 private:
 

@@ -26,6 +26,7 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <ArduinoOTA.h>					// Actualizaciones de firmware por red.
 #include <Configuracion.h>				// Fichero de configuracion
 #include <Comunicaciones.h>				// Clase de Comunicaciones
+#include <IndicadorLed.h>
 
 // Tipo de cola (lib cppQueue)
 #define	IMPLEMENTATION	FIFO
@@ -65,10 +66,13 @@ ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
 // Para las Comunicaciones
 Comunicaciones MisComunicaciones = Comunicaciones();
 
+// Indicador LED
+static IndicadorLed LedEstado(PINLED, false);
+
 // Objeto de la clase AbonaMatico.
 // Primero una instancia vacia, porque si no el puntero sAbonamatico no existe a la hora del constructor y el compilador me insulta. Un cristo vamos.
 AbonaMatico* AbonaMatico::sAbonaMatico = 0;
-AbonaMatico MiAbonaMatico(FICHERO_CONFIG_PRJ, ClienteNTP);
+AbonaMatico MiAbonaMatico(FICHERO_CONFIG_PRJ, ClienteNTP, LedEstado);
 
 // Task Scheduler
 Scheduler MiTaskScheduler;
@@ -396,6 +400,7 @@ void TaskProcesaTelemetria(){
 							Serial.println("FLUJO RGM: " + ObjJson["FLUJO"].as<String>());
 							Serial.println("CICLOS: " + ObjJson["NCICLOS"].as<String>());
 							Serial.println("TCICLO: " + ObjJson["TCICLO"].as<String>());
+							LedEstado.Pulso(100,200,2);
 
 						}
 
@@ -665,7 +670,9 @@ void setup() {
 	TaskComandosSerieRunHandler.enable();
 	
 	// Init Completado.
+	LedEstado.Pulso(100,500,3);
 	Serial.println("Funcion Setup Completada - Tareas Scheduler y loop en marcha");
+
 
 	// Iniciar Mecanica para pruebas forzando el estado a Sin Iniciar (cosa que solo se debe hacer si no esta puesta la jeringuilla)
 	//Serial.println("Iniciando Mecanica desde Setup");
@@ -690,6 +697,7 @@ void loop() {
 	//ESP.wdtFeed();
 	MiTaskScheduler.execute();
 	//ESP.wdtFeed();
+	LedEstado.RunFast();
 
 }
 
