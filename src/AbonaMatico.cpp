@@ -21,6 +21,8 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <FlexyStepper.h>
 #include <Pulsador.h>
 #include <IndicadorLed.h>
+//#include <Encoder.h>
+#include <RotaryEncoder.h>
 
 // El Objeto para el stepper
 FlexyStepper stepper;
@@ -28,6 +30,9 @@ FlexyStepper stepper;
 // El Objeto para los switches
 Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
 Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, true);
+
+//Encoder MiEncoder(ENCODER_DATA, ENCODER_CLK);
+RotaryEncoder MiEncoder(ENCODER_DATA, ENCODER_CLK);
 
 // Constructor de la  Clase
 AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, IndicadorLed& LedEstado) : ClienteNTP(ClienteNTP), LedEstado(LedEstado) {
@@ -44,7 +49,6 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, 
     
 	// Estados iniciales
 	Estado_Mecanica = EM_SIN_INICIAR;
-	Estado_Comunicaciones = EC_SIN_CONEXION;
 	Estado_Riegamatico = ER_SIN_CONEXION;
 
 	// Mi Configuracion
@@ -99,13 +103,16 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 		jObj.set("TIME", ClienteNTP.getFormattedTime());				// HORA
 		jObj.set("HI", HardwareInfo);									// Info del Hardware
 		jObj.set("EM", (unsigned int)Estado_Mecanica);					// Estado de la Mecanica
-		jObj.set("EC", (unsigned int)Estado_Comunicaciones);			// Estado de las Comunicaciones
 		jObj.set("ER", (unsigned int)Estado_Riegamatico);				// Estado del Riegamatico
 		jObj.set("PM", PosicionMM);										// Posicion de la mecanica
 		jObj.set("SH", (unsigned int)SwitchHome.LeeEstado());			// Switch Home
 		jObj.set("SU", (unsigned int)EncoderPush.LeeEstado());			// Switch User (Pulsador del Encoder)
+		jObj.set("PE", MiEncoder.getPosition());	     				// Posicion Encoder
 		jObj.set("MR", !stepper.motionComplete());						// Motor Running
-		jObj.set("RC", rtc_info->reason);								// Reset Cause (1=WTD reset)
+		jObj.set("RC", rtc_info->reason);								// Reset Cause (0=POWER ON, 1=WTD reset, 6=BOTON RESET, )
+		jObj.set("RR", ESP.getResetReason());							// Reset Reason
+		
+		
 
 		break;
 
@@ -391,6 +398,14 @@ void AbonaMatico::MecanicaRun(){
 
 }
 
+void AbonaMatico::EncoderRun(){
+
+
+	MiEncoder.tick();
+	
+}
+
+
 // Esta funcion se lanza desde una Task y hace las "cosas periodicas lentas de la clase". No debe atrancarse nunca tampoco por supuesto (ni esta ni ninguna)
 void AbonaMatico::TaskRun() {
 	
@@ -410,12 +425,10 @@ void AbonaMatico::TaskRun() {
 void AbonaMatico::RunFast(){
 
 	SwitchHome.Run();
-	//ESP.wdtFeed();
 	EncoderPush.Run();
-	//ESP.wdtFeed();
 	this->MecanicaRun();
-	//ESP.wdtFeed();
 	stepper.processMovement();
+	this->EncoderRun();
 	//ESP.wdtFeed();
 
 }

@@ -49,6 +49,7 @@ private:
 	RespondeComandoCallback MiRespondeComandos = nullptr;						// Definir el objeto que va a contener la funcion que vendra de fuera AQUI en la clase.
 
 	void MecanicaRun();															// Funcion para el gobierno de la mecanica
+	void EncoderRun();															// Para la gestion del encoder
 		
 
 public:
@@ -75,17 +76,6 @@ public:
 		EM_ERROR,						// Error en la mecanica
 
 	}Estado_Mecanica;
-
-
-	// Para el estado de las comunicaciones
-	enum Tipo_Estado_Comunicaciones {
-
-		EC_SIN_CONEXION,				// No conectado a ninguna red
-		EC_SOLO_WIFI,					// Conectado solo a la wifi
-		EC_CONECTADO,					// Conectado a la wifi y al broker mqtt
-
-	}Estado_Comunicaciones;
-
 
 	// Para el estado del Riegamatico
 	enum Tipo_Estado_Riegamatico {
