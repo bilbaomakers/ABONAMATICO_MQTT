@@ -147,6 +147,7 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 		Serial.print("MQTT - CONECTADO: ");
 		Serial.println(String(Info));
 		ClienteNTP.update();
+		LedEstado.Ciclo(100,100,5000,1);		// Led en ciclo conectado
 
 	break;
 
@@ -163,6 +164,12 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 		//Serial.print("MQTT - TELE_RX: ");
 		//Serial.println(String(Info));
 		ColaTelemetria.push(Info);
+
+	break;
+
+	case Comunicaciones::EVENTO_DESCONECTADO:
+
+		LedEstado.Ciclo(500,500,0,1);		// Led en ciclo desconectado
 
 	break;
 
@@ -400,7 +407,7 @@ void TaskProcesaTelemetria(){
 							Serial.println("FLUJO RGM: " + ObjJson["FLUJO"].as<String>());
 							Serial.println("CICLOS: " + ObjJson["NCICLOS"].as<String>());
 							Serial.println("TCICLO: " + ObjJson["TCICLO"].as<String>());
-							LedEstado.Pulso(100,200,2);
+							LedEstado.Pulsos(60,100,2);
 
 						}
 
@@ -670,7 +677,7 @@ void setup() {
 	TaskComandosSerieRunHandler.enable();
 	
 	// Init Completado.
-	LedEstado.Pulso(100,500,3);
+	LedEstado.Ciclo(500,500,0,1);		// Led en ciclo desconectado
 	Serial.println("Funcion Setup Completada - Tareas Scheduler y loop en marcha");
 
 
