@@ -15,6 +15,7 @@ Comunicaciones::Comunicaciones(){
     strcpy(mqttusuario, "mosquitto");
     strcpy(mqttpassword, "nopasswd");
     strcpy(mqttclientid, "noclientid");
+    strcpy(RiegamticoTopic, "RIEGAMATICO");
     
 }
 
@@ -22,7 +23,6 @@ Comunicaciones::~Comunicaciones(){
 
 
 }
-
 
 void Comunicaciones::SetEventoCallback(TipoCallbackEvento ref){
 
@@ -66,13 +66,21 @@ void Comunicaciones::SetMqttClientId(char l_mqttclientid[15]){
 
 }
 
+void Comunicaciones::SetRiegamaticoTopic(char l_RiegamticoTopic[33]){
+
+    strcpy(RiegamticoTopic, l_RiegamticoTopic);
+    this->Desonectar();
+
+}
+
 void Comunicaciones::FormaEstructuraTopics(){
 
     cmndTopic = "cmnd/" + String(mqtttopic) + "/#";
     statTopic = "stat/" + String(mqtttopic);
     teleTopic = "tele/" + String(mqtttopic);
     lwtTopic = teleTopic + "/LWT";
-
+    RiegamaticoTeleTopic = "tele/" + String(RiegamticoTopic) + "/#";
+    
 }
 
 bool Comunicaciones::IsConnected(){
@@ -144,10 +152,10 @@ void Comunicaciones::onMqttConnect(bool sessionPresent) {
     bool susflag = false;
 	bool lwtflag = false;
 	
-    char Mensaje[100];
+    char Mensaje[300];
 
-	// Suscribirse al topic de Entrada de Comandos
-	if (ClienteMQTT.subscribe(cmndTopic.c_str(), 2)) {
+	// Suscribirse al topic de Entrada de Comandos y a los de tele y LWT del riegamatico
+	if (ClienteMQTT.subscribe(cmndTopic.c_str(), 2) && ClienteMQTT.subscribe(RiegamaticoTeleTopic.c_str(), 2)) {
 	
 		susflag = true;				
 
@@ -245,8 +253,8 @@ void Comunicaciones::onMqttMessage(char* topic, char* payload, AsyncMqttClientMe
 		int Indice1 = s_topic.indexOf("/");
 		String Prefijo = s_topic.substring(0, Indice1);
 		
-		// Si el prefijo es cmnd se lo mandamos al manejador de comandos
-		if (Prefijo == "cmnd") { 
+		// Si el prefijo es cmnd o tele lo procesamos
+		if (Prefijo == "cmnd" || Prefijo == "tele") { 
 
 			// Sacamos el "COMANDO" del topic, o sea lo que hay detras de la ultima /
 			int Indice2 = s_topic.lastIndexOf("/");
@@ -257,12 +265,25 @@ void Comunicaciones::onMqttMessage(char* topic, char* payload, AsyncMqttClientMe
 			ObjJson.set("COMANDO",Comando);
 			ObjJson.set("PAYLOAD",s_payload);
 
-			char JSONmessageBuffer[100];
+			char JSONmessageBuffer[300];
 			ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
             
-            MiCallbackEventos(Comunicaciones::EVENTO_MSG_RX, JSONmessageBuffer);
+
+            if (Prefijo == "cmnd"){
+
+                MiCallbackEventos(Comunicaciones::EVENTO_CMND_RX, JSONmessageBuffer);
+
+            }
+
+            else if (Prefijo == "tele"){
+
+                MiCallbackEventos(Comunicaciones::EVENTO_TELE_RX, JSONmessageBuffer);
+
+            }
 						
 		}
+
+
 
 		
 }

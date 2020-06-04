@@ -1,4 +1,3 @@
-
 // Conexiones Del ESP8266
 
 // ENTRADAS
@@ -10,22 +9,25 @@
 // Tiempos debounce de los switches y pulsadores
 #define DEBOUNCESWHOME 50
 #define DEBOUNCESWUSER 50
+#define HOLDTIMESWUSER 2000
 
 // SALIDAS
 #define PINLED D7
 
 // STEPPER
-#define PASOS_MOTOR 200         // Pasos por vuelta
-#define DIR_MOTOR D0            // Pin de direccion
-#define STEP_MOTOR D1           // Pin de pasos
-#define ENABLE_MOTOR D2         // Pin de enable
-#define VMAX_MOTOR 400          // Velocidad maxima del motor en pasos por segundo
+#define PASOS_MOTOR 200             // Pasos por vuelta
+#define DIR_PIN D0                  // Pin de direccion
+#define STEP_PIN D1                 // Pin de pasos
+#define ENABLE_MOTOR D2             // Pin de enable
+#define VMAX_MOTOR 300              // Velocidad maxima del motor en pasos por segundo
+#define ACCEL_MOTOR 1000             // Aceleracion en pasos/s2
+#define INVERT_MOTOR -1             // Para invertir la direccion del motor (1,-1)
 
 // Y la geometria de la maquina en mm
 #define PASOTRANSMISION 1           // Paso del husillo de la transmision en mm (mm por vuelta)
-#define POSABIERTO 30              // Posicion maxima abierto (cambio jeringuilla)
-#define POSMAX 29                  // Posicin de la jeringuilla llena
-#define POSMIN 16                  // Posicion de la jeringuilla vacia
+#define POSABIERTO 100              // Posicion maxima abierto (cambio jeringuilla)
+#define POSMAX 80                  // Posicin de la jeringuilla llena
+#define POSMIN 50                  // Posicion de la jeringuilla vacia
 
 // CARGA DE LA BATERIA
 #define THIBERNADO  60              // Tiempo para despertar y comprobar la bateria (minutos)

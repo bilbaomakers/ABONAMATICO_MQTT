@@ -19,25 +19,27 @@ private:
 
  
     unsigned long millis_debounce;
-
+    
     int pinswitch;
 
     bool invertir;
 
 public:
 
-    enum Estado_Debounce {
+    enum Estado_Salida {
 
 		EDB_IDLE,
 		EDB_PULSADO,
+        EDB_HOLD,
 		EDB_DETECTADO_CAMBIO,
-		
-	}estado_debounce, estado_debounce_anterior;
+        		
+	}Estado_Salida;
 
 
     unsigned long debouncetime;
+    unsigned long holdtime;
 
-    Pulsador(int pin, int modo, unsigned long DebounceTimeMS, bool invert);
+    Pulsador(int pin, int modo, unsigned long DebounceTimeMS, unsigned long HoldTimeMS, bool invert);
     ~Pulsador(){};
 
     int LeeEstado();

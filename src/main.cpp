@@ -1,7 +1,4 @@
-#pragma region COMENTARIOS
-
 /*
-
 # ABONAMATICO 1.0
 # Inyector de Abono en el riego con capcidades MQTT
 Desarrollado con Visual Code + PlatformIO en Framework Arduino
@@ -12,17 +9,9 @@ Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@dieg
 https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
 Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0.html
-
-
 */
 
-#pragma endregion
-
-#pragma region INCLUDES
-
-
-
-// Librerias comantadas en proceso de sustitucion por la WiFiMQTTManager
+#pragma region INCLUDES y DEFINES
 
 #include <TaskScheduler.h>				// Task Scheduler
 #include <cppQueue.h>					// Libreria para uso de colas.
@@ -37,6 +26,7 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <ArduinoOTA.h>					// Actualizaciones de firmware por red.
 #include <Configuracion.h>				// Fichero de configuracion
 #include <Comunicaciones.h>				// Clase de Comunicaciones
+#include <IndicadorLed.h>
 
 // Tipo de cola (lib cppQueue)
 #define	IMPLEMENTATION	FIFO
@@ -44,10 +34,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 // TaskScheduler options:
 //#define _TASK_TIMECRITICAL    // Enable monitoring scheduling overruns
 #define _TASK_SLEEP_ON_IDLE_RUN // Enable 1 ms SLEEP_IDLE powerdowns between tasks if no callback methods were invoked during the pass 
-#define _TASK_STATUS_REQUEST  // Compile with support for StatusRequest functionality - triggering tasks on status change events in addition to time only
+#define _TASK_STATUS_REQUEST  	// Compile with support for StatusRequest functionality - triggering tasks on status change events in addition to time only
 //#define _TASK_WDT_IDS         // Compile with support for wdt control points and task ids
 //#define _TASK_LTS_POINTER     // Compile with support for local task storage pointer
-//#define _TASK_PRIORITY          // Support for layered scheduling priority
+//#define _TASK_PRIORITY        // Support for layered scheduling priority
 //#define _TASK_MICRO_RES       // Support for microsecond resolutionMM
 //#define _TASK_DEBUG
 
@@ -55,13 +45,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 
 #pragma region Objetos
 
-// Para la conexion MQTT
-// AsyncMqttClient ClienteMQTT;
-
 // Manejadores Colas para comunicaciones inter-tareas
-//QueueHandle_t ColaComandos,ColaRespuestas;
-Queue ColaComandos(100, 10, IMPLEMENTATION);	// Instantiate queue
-Queue ColaRespuestas(300, 10, IMPLEMENTATION);	// Instantiate queue
+Queue ColaComandos(300, 10, IMPLEMENTATION);	// Cola para los comandos recibidos
+Queue ColaTelemetria(300, 10, IMPLEMENTATION);	// Cola para la telemetria recibida
+Queue ColaRespuestas(300, 10, IMPLEMENTATION);	// Cola para las respuestas a enviar
 
 // Flag para el estado del sistema de ficheros
 boolean SPIFFStatus = false;
@@ -71,7 +58,7 @@ WiFiUDP UdpNtp;
 
 // Manejador del NTP. Cliente red, servidor, offset zona horaria, intervalo de actualizacion.
 // FALTA IMPLEMENTAR ALGO PARA CONFIGURAR LA ZONA HORARIA
-static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 3600);
+static NTPClient ClienteNTP(UdpNtp, "pool.ntp.org", HORA_LOCAL * 3600, 1);
 
 // Para el manejador de ficheros de configuracion
 ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
@@ -79,10 +66,13 @@ ConfigCom MiConfig = ConfigCom(FICHERO_CONFIG_COM);
 // Para las Comunicaciones
 Comunicaciones MisComunicaciones = Comunicaciones();
 
+// Indicador LED
+static IndicadorLed LedEstado(PINLED, false);
+
 // Objeto de la clase AbonaMatico.
 // Primero una instancia vacia, porque si no el puntero sAbonamatico no existe a la hora del constructor y el compilador me insulta. Un cristo vamos.
 AbonaMatico* AbonaMatico::sAbonaMatico = 0;
-AbonaMatico MiAbonaMatico(FICHERO_CONFIG_PRJ, ClienteNTP);
+AbonaMatico MiAbonaMatico(FICHERO_CONFIG_PRJ, ClienteNTP, LedEstado);
 
 // Task Scheduler
 Scheduler MiTaskScheduler;
@@ -139,8 +129,8 @@ void MandaRespuesta(String comando, String payload) {
 
 }
 
-
-void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
+// Funcion ante un Evento de la libreria de comunicaciones
+void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[300]){
 
 	
 	switch (Evento_Comunicaciones)
@@ -149,23 +139,43 @@ void EventoComunicaciones (unsigned int Evento_Comunicaciones, char Info[100]){
 	
 		Serial.print("MQTT - CONECTANDO: ");
 		Serial.println(String(Info));
-		break;
+
+	break;
 	
 	case Comunicaciones::EVENTO_CONECTADO:
 
 		Serial.print("MQTT - CONECTADO: ");
 		Serial.println(String(Info));
-		break;
+		ClienteNTP.update();
+		LedEstado.Ciclo(100,100,5000,1);		// Led en ciclo conectado
 
-	case Comunicaciones::EVENTO_MSG_RX:
+	break;
 
-		Serial.print("MQTT - MSG_RX: ");
+	case Comunicaciones::EVENTO_CMND_RX:
+
+		Serial.print("MQTT - CMND_RX: ");
 		Serial.println(String(Info));
 		ColaComandos.push(Info);
-		break;
+
+	break;
+
+	case Comunicaciones::EVENTO_TELE_RX:
+
+		//Serial.print("MQTT - TELE_RX: ");
+		//Serial.println(String(Info));
+		ColaTelemetria.push(Info);
+
+	break;
+
+	case Comunicaciones::EVENTO_DESCONECTADO:
+
+		LedEstado.Ciclo(500,500,0,1);		// Led en ciclo desconectado
+
+	break;
 
 	default:
-		break;
+	break;
+
 	}
 
 
@@ -212,7 +222,7 @@ void TaskGestionRed () {
 //Tarea para procesar la cola de comandos recibidos
 void TaskProcesaComandos (){
 
-	char JSONmessageBuffer[100];
+	char JSONmessageBuffer[300];
 				
 			// Limpiar el Buffer
 			memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
@@ -344,6 +354,95 @@ void TaskProcesaComandos (){
 	
 }
 
+// Tarea para procesar la telemetria recibida
+void TaskProcesaTelemetria(){
+
+
+			char JSONmessageBuffer[300];
+				
+			// Limpiar el Buffer
+			memset(JSONmessageBuffer, 0, sizeof JSONmessageBuffer);
+
+			//if (xQueueReceive(ColaComandos,&JSONmessageBuffer,0) == pdTRUE ){
+			if (ColaTelemetria.pull(&JSONmessageBuffer)){
+
+				String COMANDO;
+				String PAYLOAD;
+				DynamicJsonBuffer jsonBuffer;
+				JsonObject& ObjJson = jsonBuffer.parseObject(JSONmessageBuffer);
+
+				if (ObjJson.success()) {
+				
+					COMANDO = ObjJson["COMANDO"].as<String>();
+					PAYLOAD = ObjJson["PAYLOAD"].as<String>();
+					
+					// Procesar los mensajes de Telemetria
+
+					if (COMANDO == "LWT"){
+												
+						if (PAYLOAD == "Online"){
+
+							MiAbonaMatico.SetEstadoRiegamatico(AbonaMatico::ER_CONECTADO_NOREADY);
+							Serial.println("Detectado Riegamatico LWT: " + PAYLOAD);
+
+						}
+
+						else {
+
+							MiAbonaMatico.SetEstadoRiegamatico(AbonaMatico::ER_SIN_CONEXION);
+							Serial.println("Detectado Riegamatico LWT: " + PAYLOAD);
+
+						}
+
+
+					}
+
+					else if (COMANDO == "INFO2"){
+
+						JsonObject& ObjJson = jsonBuffer.parseObject(PAYLOAD);
+						if (ObjJson.success()){
+
+							Serial.println("Recibida Telemetria del RiemaMatico");
+							Serial.println("BOMBA RGM: " + ObjJson["BOMBACUR"].as<String>());
+							Serial.println("FLUJO RGM: " + ObjJson["FLUJO"].as<String>());
+							Serial.println("CICLOS: " + ObjJson["NCICLOS"].as<String>());
+							Serial.println("TCICLO: " + ObjJson["TCICLO"].as<String>());
+							LedEstado.Pulsos(60,100,2);
+
+						}
+
+						else{
+
+							Serial.println("La telemetria JSON esta mal pasada");
+
+						}
+
+						
+
+					}
+					
+					else {
+
+						//Serial.println("Me ha llegado un paquete de telemetria que no proceso.");
+						//Serial.println("Comando: " + COMANDO);
+						//Serial.println("Payload: " + PAYLOAD);
+
+					}
+
+				}
+
+				// Y si por lo que sea la libreria JSON no puede convertir el comando recibido
+				else {
+
+						Serial.println("La tarea de procesar telemetria ha recibido un paquete JSON mal formado.");
+						
+				}
+			
+			}
+
+}
+
+
 // Tarea para procesar la cola de respuestas
 void TaskEnviaRespuestas(){
 
@@ -459,7 +558,7 @@ void TaskComandosSerieRun(){
 				ObjJson.set("COMANDO",comando);
 				ObjJson.set("PAYLOAD",parametro1);
 
-				char JSONmessageBuffer[100];
+				char JSONmessageBuffer[300];
 				ObjJson.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
 			
 				// Mando el comando a la cola de comandos recibidos que luego procesara la tarea manejadordecomandos.
@@ -483,7 +582,7 @@ void TaskComandosSerieRun(){
 void TaskAbonaMaticoRun(){
 
 
-		MiAbonaMatico.Run();
+		MiAbonaMatico.TaskRun();
 
 
 }
@@ -501,6 +600,7 @@ void TaskMandaTelemetria(){
 // Definir aqui las tareas (no en SETUP como en FreeRTOS)
 
 Task TaskProcesaComandosHandler (100, TASK_FOREVER, &TaskProcesaComandos, &MiTaskScheduler, false);
+Task TaskProcesaTelemetriaHandler (1000, TASK_FOREVER, &TaskProcesaTelemetria, &MiTaskScheduler, false);
 Task TaskEnviaRespuestasHandler (100, TASK_FOREVER, &TaskEnviaRespuestas, &MiTaskScheduler, false);
 Task TaskAbonaMaticoRunHandler (100, TASK_FOREVER, &TaskAbonaMaticoRun, &MiTaskScheduler, false);
 Task TaskMandaTelemetriaHandler (5000, TASK_FOREVER, &TaskMandaTelemetria, &MiTaskScheduler, false);
@@ -570,13 +670,16 @@ void setup() {
 	Serial.println("Habilitando tareas del sistema.");
 		
 	TaskProcesaComandosHandler.enable();
+	TaskProcesaTelemetriaHandler.enable();
 	TaskEnviaRespuestasHandler.enable();
 	TaskAbonaMaticoRunHandler.enable();
 	TaskMandaTelemetriaHandler.enable();
 	TaskComandosSerieRunHandler.enable();
 	
 	// Init Completado.
+	LedEstado.Ciclo(500,500,0,1);		// Led en ciclo desconectado
 	Serial.println("Funcion Setup Completada - Tareas Scheduler y loop en marcha");
+
 
 	// Iniciar Mecanica para pruebas forzando el estado a Sin Iniciar (cosa que solo se debe hacer si no esta puesta la jeringuilla)
 	//Serial.println("Iniciando Mecanica desde Setup");
@@ -595,12 +698,13 @@ void setup() {
 void loop() {
 
 	ArduinoOTA.handle();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 	//ClienteNTP.update();
 	MiAbonaMatico.RunFast();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
 	MiTaskScheduler.execute();
-	ESP.wdtFeed();
+	//ESP.wdtFeed();
+	LedEstado.RunFast();
 
 }
 

@@ -1,6 +1,4 @@
-
 /*
-
 # ABONAMATICO 1.0
 # Inyector de Abono en el riego con capcidades MQTT
 Desarrollado con Visual Code + PlatformIO en Framework Arduino
@@ -11,8 +9,6 @@ Author: Diego Maroto - BilbaoMakers 2020 - info@bilbaomakers.org - dmarofer@dieg
 https://github.com/dmarofer/ABONAMATICO_MQTT
 https://bilbaomakers.org/
 Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0.html
-
-
 */
 
 #include <AbonaMatico.h>
@@ -24,15 +20,21 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <Configuracion.h>				// Fichero de configuracion
 #include <FlexyStepper.h>
 #include <Pulsador.h>
+#include <IndicadorLed.h>
+#include <RotaryEncoder.h>
 
 // El Objeto para el stepper
 FlexyStepper stepper;
 
 // El Objeto para los switches
-Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, false);
-Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, true);
+Pulsador SwitchHome (PINHOME, INPUT_PULLUP, DEBOUNCESWHOME, 0, false);
+Pulsador EncoderPush (ENCODER_PUSH_PIN, INPUT_PULLUP, DEBOUNCESWUSER, HOLDTIMESWUSER, true);
 
-AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) : ClienteNTP(ClienteNTP) {
+//Encoder MiEncoder(ENCODER_DATA, ENCODER_CLK);
+RotaryEncoder MiEncoder(ENCODER_DATA, ENCODER_CLK);
+
+// Constructor de la  Clase
+AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, IndicadorLed& LedEstado) : ClienteNTP(ClienteNTP), LedEstado(LedEstado) {
 
 	sAbonaMatico = this;	// Apuntar el puntero sAbonamatico a esta instancia (para funciones estaticas)
 
@@ -46,7 +48,6 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
     
 	// Estados iniciales
 	Estado_Mecanica = EM_SIN_INICIAR;
-	Estado_Comunicaciones = EC_SIN_CONEXION;
 	Estado_Riegamatico = ER_SIN_CONEXION;
 
 	// Mi Configuracion
@@ -54,9 +55,9 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 
 	// Stepper
 	
-	stepper.connectToPins(STEP_MOTOR ,DIR_MOTOR);
+	stepper.connectToPins(STEP_PIN ,DIR_PIN);
 	stepper.setSpeedInStepsPerSecond(VMAX_MOTOR);
-	stepper.setAccelerationInStepsPerSecondPerSecond(PASOS_MOTOR);
+	stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR);
 	stepper.setCurrentPositionInSteps(0);
 
 	pinMode(ENABLE_MOTOR, OUTPUT);					// Enable del motor
@@ -65,6 +66,9 @@ AbonaMatico::AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP) 
 	PasosPorMilimetro = PASOS_MOTOR / PASOTRANSMISION;
 
 	Frenando = false;
+
+	MiEncoder.setPosition(0);
+	EncoderPosicionAnterior = MiEncoder.getPosition();
 		
 }
 
@@ -101,13 +105,16 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 		jObj.set("TIME", ClienteNTP.getFormattedTime());				// HORA
 		jObj.set("HI", HardwareInfo);									// Info del Hardware
 		jObj.set("EM", (unsigned int)Estado_Mecanica);					// Estado de la Mecanica
-		jObj.set("EC", (unsigned int)Estado_Comunicaciones);			// Estado de las Comunicaciones
 		jObj.set("ER", (unsigned int)Estado_Riegamatico);				// Estado del Riegamatico
 		jObj.set("PM", PosicionMM);										// Posicion de la mecanica
 		jObj.set("SH", (unsigned int)SwitchHome.LeeEstado());			// Switch Home
 		jObj.set("SU", (unsigned int)EncoderPush.LeeEstado());			// Switch User (Pulsador del Encoder)
+		jObj.set("PE", MiEncoder.getPosition());	     				// Posicion Encoder
 		jObj.set("MR", !stepper.motionComplete());						// Motor Running
-		jObj.set("RC", rtc_info->reason);								// Reset Cause (1=WTD reset)
+		jObj.set("RC", rtc_info->reason);								// Reset Cause (0=POWER ON, 1=WTD reset, 4=SOFTWARE RESET, 6=BOTON RESET, )
+		jObj.set("RR", ESP.getResetReason());							// Reset Reason
+		
+		
 
 		break;
 
@@ -136,6 +143,7 @@ String AbonaMatico::MiEstadoJson(int categoria) {
 	
 }
 
+// Funcion para salvar la configuracion en el fichero
 boolean AbonaMatico::SalvaConfig(){
 	
 
@@ -160,6 +168,7 @@ boolean AbonaMatico::SalvaConfig(){
 
 }
 
+// Funcion para leer la configuracion desde el fichero
 boolean AbonaMatico::LeeConfig(){
 
 	// Sacar del fichero de configuracion, si existe, las configuraciones permanentes
@@ -199,6 +208,7 @@ boolean AbonaMatico::LeeConfig(){
 
 }
 
+// Funcion para poner la mecanica en estado 0
 void AbonaMatico::ResetMecanica(){
 
 
@@ -208,8 +218,7 @@ void AbonaMatico::ResetMecanica(){
 
 }
 
-// Funcion para inicializar la mecanica. Se puede forzar pero NO si estamos en estado de la mecanica activo antes forzar a vacio.
-// Basicamente cambia estados, la funcion mecanicarun sabra que hacer
+// Funcion para disparar el ciclo de inicio de la mecanica. La mecanica tiene que estar en estado 0
 void AbonaMatico::IniciaMecanica(){
 
 
@@ -221,6 +230,7 @@ void AbonaMatico::IniciaMecanica(){
 		// Resetear posicion y cambiado estado a BAJANDO (que es el siguiente estado)
 		
 		Estado_Mecanica = EM_INICIALIZANDO_BAJANDO;
+		HayQueSalvar = true;
 		this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 						
 		// Si el motor esta parado y el SW HOME en IDLE
@@ -231,11 +241,11 @@ void AbonaMatico::IniciaMecanica(){
 
 			//AccelStepper
 			stepper.setSpeedInStepsPerSecond(VMAX_MOTOR/2);
-			stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR/2);
+			stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR);
 			stepper.setCurrentPositionInSteps(0);
 			digitalWrite(ENABLE_MOTOR,0);
 			Frenando=false;
-			stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * -1);
+			stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * -1 * INVERT_MOTOR);
 			
 		}
 
@@ -256,12 +266,19 @@ void AbonaMatico::IniciaMecanica(){
 
 }
 
-// Aqui implementar todo el funcionamiento de la mecanica. Se lanza desde el runfast
+// Actualizar la variable interna con el estado del riegamatico. Desde el MAIN que es donde se procesa la telemetria
+void AbonaMatico::SetEstadoRiegamatico (Tipo_Estado_Riegamatico (estado)){
+
+	Estado_Riegamatico = estado;
+
+}
+
+// Maquina de estado de la mecanica
 void AbonaMatico::MecanicaRun(){
 
 
 	// Actualizar la posicion en mm
-	PosicionMM = (stepper.getCurrentPositionInSteps()/PASOS_MOTOR)*PASOTRANSMISION ;
+	PosicionMM = (stepper.getCurrentPositionInSteps()/PASOS_MOTOR)*PASOTRANSMISION*INVERT_MOTOR ;
 	
 	// Aqui la secuencia de la mecanica
 	switch (Estado_Mecanica){
@@ -285,11 +302,11 @@ void AbonaMatico::MecanicaRun(){
 				
 				//AccelStepper
 				stepper.setSpeedInStepsPerSecond(VMAX_MOTOR);
-				stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR);
+				stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR);
 				stepper.setCurrentPositionInSteps(0);
 				digitalWrite(ENABLE_MOTOR,0);
 				Frenando = false;
-				stepper.setTargetPositionInSteps(POSABIERTO * PasosPorMilimetro);
+				stepper.setTargetPositionInSteps(POSABIERTO * PasosPorMilimetro * INVERT_MOTOR);
 
 				Estado_Mecanica = EM_INICIALIZANDO_SUBIENDO;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
@@ -326,10 +343,10 @@ void AbonaMatico::MecanicaRun(){
 
 				//AccelStepper
 				stepper.setSpeedInStepsPerSecond(VMAX_MOTOR/2);
-				stepper.setAccelerationInStepsPerSecondPerSecond(VMAX_MOTOR/2);
+				stepper.setAccelerationInStepsPerSecondPerSecond(ACCEL_MOTOR/10);
 				digitalWrite(ENABLE_MOTOR,0);
 				Frenando=false;
-				stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro);
+				stepper.setTargetPositionInSteps(POSMAX * PasosPorMilimetro * INVERT_MOTOR);
 				Estado_Mecanica = EM_ACTIVA_EN_MOVIMIENTO;
 				this->MiRespondeComandos("IniciaMecanica", String(Estado_Mecanica));
 				break;
@@ -383,8 +400,42 @@ void AbonaMatico::MecanicaRun(){
 
 }
 
+void AbonaMatico::EncoderRun(){
+
+	if (Estado_Mecanica == EM_SIN_INICIAR){
+
+		MiEncoder.tick();
+			
+		switch (MiEncoder.getDirection()){
+
+			// Bajar Mecanica
+			case  RotaryEncoder::Direction::CLOCKWISE:
+
+				stepper.setTargetPositionRelativeInSteps( MiEncoder.getPosition() * PasosPorMilimetro * INVERT_MOTOR * -1);
+				MiEncoder.setPosition(0);
+
+			break;
+
+			// Subir Mecanica
+			case RotaryEncoder::Direction::COUNTERCLOCKWISE:
+
+				stepper.setTargetPositionRelativeInSteps( MiEncoder.getPosition() * PasosPorMilimetro * INVERT_MOTOR);
+				MiEncoder.setPosition(0);
+
+			break;
+
+			default:
+			break;
+
+		};
+
+	}
+	
+}
+
+
 // Esta funcion se lanza desde una Task y hace las "cosas periodicas lentas de la clase". No debe atrancarse nunca tampoco por supuesto (ni esta ni ninguna)
-void AbonaMatico::Run() {
+void AbonaMatico::TaskRun() {
 	
 	// UpTime Minutos
 	t_uptime = 0;
@@ -402,12 +453,10 @@ void AbonaMatico::Run() {
 void AbonaMatico::RunFast(){
 
 	SwitchHome.Run();
-	ESP.wdtFeed();
 	EncoderPush.Run();
-	ESP.wdtFeed();
 	this->MecanicaRun();
-	ESP.wdtFeed();
 	stepper.processMovement();
-	ESP.wdtFeed();
+	this->EncoderRun();
+	//ESP.wdtFeed();
 
 }

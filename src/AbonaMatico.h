@@ -17,10 +17,10 @@ Licencia: GNU General Public License v3.0 - https://www.gnu.org/licenses/gpl-3.0
 #include <Arduino.h>
 #include <NTPClient.h>					// Para la gestion de la hora por NTP
 #include <WiFiUdp.h>					// Para la conexion UDP con los servidores de hora.
-//#include <A4988.h>						// Para el stepper
 #include <Configuracion.h>				// Fichero de configuracion
 #include <FlexyStepper.h>
 #include <AccelStepper.h>
+#include <IndicadorLed.h>
 
 class AbonaMatico
 {
@@ -39,8 +39,10 @@ private:
 	bool Frenando;																// Flag para saber que hemos dado la orden de parada y no repetirla
 
 	NTPClient &ClienteNTP;														// Para almacenar Alias (referencia) al objeto tipo NTPClient para poder usar en la clase el que viene del Main
+	IndicadorLed &LedEstado;													// Para el Led de Estado
 	static AbonaMatico* sAbonaMatico;											// Un objeto para albergar puntero a la instancia del Abonamatico y manipularla desde dentro desde la interrupcion
 
+	long EncoderPosicionAnterior;												// Para almacenar la posicion anterior del encoder
 	
 	// Funciones privadas
 	
@@ -48,11 +50,14 @@ private:
 	RespondeComandoCallback MiRespondeComandos = nullptr;						// Definir el objeto que va a contener la funcion que vendra de fuera AQUI en la clase.
 
 	void MecanicaRun();															// Funcion para el gobierno de la mecanica
+	void EncoderRun();															// Para la gestion del encoder
 		
 
 public:
 
-    AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP);
+	
+
+    AbonaMatico(String fich_config_AbonaMatico, NTPClient& ClienteNTP, IndicadorLed& LedEstado);
     ~AbonaMatico() {};
 
     //  Variables Publicas
@@ -73,31 +78,20 @@ public:
 
 	}Estado_Mecanica;
 
-
-	// Para el estado de las comunicaciones
-	enum Tipo_Estado_Comunicaciones {
-
-		EC_SIN_CONEXION,				// No conectado a ninguna red
-		EC_SOLO_WIFI,					// Conectado solo a la wifi
-		EC_CONECTADO,					// Conectado a la wifi y al broker mqtt
-
-	}Estado_Comunicaciones;
-
-
 	// Para el estado del Riegamatico
 	enum Tipo_Estado_Riegamatico {
 
 		ER_SIN_CONEXION,				// No hay conexion con el riegamatico
-		ER_OFFLINE,						// Hay conexion con el riegamatico pero no esta en estado operativo
-		ER_ACTIVO,						// hay conexion con el riegamatico y esta operativo
+		ER_CONECTADO_NOREADY,			// Hay conexion con el riegamatico pero no esta en estado operativo
+		ER_CONRECTADO_READY,			// hay conexion con el riegamatico y esta operativo
 
 	}Estado_Riegamatico;
 
 
 	// Funciones Publicas
 	String MiEstadoJson(int categoria);								// Devuelve un JSON con los estados en un array de 100 chars (la libreria MQTT no puede con mas de 100)
-	void Run();														// Actualiza las propiedades de estado de este objeto en funcion del estado de motores y sensores
-    void RunFast();													// Funcion para las tareas rapidas, como las del objeto stepper.
+	void TaskRun();													// Funcion periodica de Tareas (update lento)
+    void RunFast();													// Funcion de vida para las tareas rapidas, como las del objeto stepper.
 	
 	void SetRespondeComandoCallback(RespondeComandoCallback ref);	// Definir la funcion para pasarnos la funcion de callback del enviamensajes
 	boolean LeeConfig();
@@ -108,6 +102,9 @@ public:
 	void ResetMecanica();
 	void IniciaMecanica();
 	void Recargar();
+
+	// Funciones con RIEGAMATICO
+	void SetEstadoRiegamatico (Tipo_Estado_Riegamatico (estado));
 	
 	// funciones publicas de configuracion
 	void SetML();
