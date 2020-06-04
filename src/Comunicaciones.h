@@ -39,7 +39,6 @@ private:
 	String teleTopic;
 	String lwtTopic;
     String RiegamaticoTeleTopic;
-    String RiegamaticoLWTTopic;
 
     void FormaEstructuraTopics();
 
